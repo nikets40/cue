@@ -18,8 +18,11 @@ struct CueLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    ArtworkThumb(data: context.state.artworkThumb, size: 56)
-                        .padding(.leading, 2)
+                    // Inset from the island's top corner curve so the square
+                    // thumb doesn't get clipped by the mask.
+                    ArtworkThumb(data: context.state.artworkThumb, size: 48)
+                        .padding(.leading, 4)
+                        .padding(.top, 8)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -33,10 +36,12 @@ struct CueLiveActivity: Widget {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading, 6)
+                    .padding(.top, 8)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     WaveformBadge(playing: context.state.playing)
-                        .padding(.trailing, 2)
+                        .padding(.trailing, 4)
+                        .padding(.top, 14)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(spacing: 10) {
