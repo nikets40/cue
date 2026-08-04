@@ -10,7 +10,8 @@ _Last updated: 2026-08-04_
 
 - ✅ **M0 complete.** `media-control` 0.7.6 (Homebrew) validated on macOS 26.5.1 (Tahoe): reads full now-playing metadata (title/artist/album/artwork/position/duration/playing) from Chrome, streams diff updates, and sends transport commands (play/pause/next/prev/**seek/shuffle/repeat**) — all without accessibility permissions. `media-control test` passes.
 - ✅ **M0.5 complete.** Cue Booth verification dashboard (`booth/`, `swift run`) works against live Chrome playback: artwork, metadata, source app, extrapolated progress + seek, transport buttons, volume slider, raw payload inspector, auto-restarting stream subprocess.
-- ⬜ Next: **M1** — CueKit protocol package + WebSocket/Bonjour server in Booth, menu bar presence.
+- ✅ **M1 complete.** CueKit protocol package + WebSocket server (`CueServer`, NWListener, port 41952) advertised via Bonjour (`_cue._tcp`, visible in `dns-sd -B _cue._tcp`), full-state broadcast on change (80 ms debounce), commands handled, new clients get an immediate snapshot, menu bar presence, server status badge in dashboard. End-to-end verified with a `URLSessionWebSocketTask` test client: connect → snapshot received; `{"action":"play"}` → Chrome resumed; `{"action":"setVolume","value":45}` → system volume changed; state updates pushed back. Remote: https://github.com/nikets40/cue (private).
+- ⬜ Next: **M2** — Cue iOS app (Xcode project in `ios/`), Bonjour discovery + remote UI, test in Simulator against Booth.
 
 ## Why this architecture
 
@@ -48,7 +49,7 @@ cue/
 
 - [x] **M0 — Validate mediaremote-adapter on macOS 26.** Done 2026-08-04, see Status.
 - [x] **M0.5 — Cue Booth verification UI.** Mac app with a dashboard window showing everything the adapter picks up (artwork, title, artist, album, source app, live progress, play state, raw event JSON) plus transport buttons, seek, and a volume slider to verify the command path. No networking yet.
-- [ ] **M1 — Cue Booth server core.** CueKit protocol package; WebSocket server (`NWListener`) + Bonjour advertising (`_cue._tcp`); broadcast state snapshots; handle commands. Menu bar presence. Testable with `websocat` — no phone needed.
+- [x] **M1 — Cue Booth server core.** CueKit protocol package; WebSocket server (`NWListener`) + Bonjour advertising (`_cue._tcp`); broadcast state snapshots; handle commands. Menu bar presence. (Note: websocat misbehaved in this shell — test with a Swift `URLSessionWebSocketTask` script instead; see git history for `wstest.swift` approach.)
 - [ ] **M2 — Cue iPhone app (Simulator).** SwiftUI: discovery screen (Bonjour browse), remote screen (artwork card, transport, scrubber, volume slider). Simulator talks to Booth on localhost.
 - [ ] **M3 — Real device + polish.** Sideload to iPhone; pairing token; launch-at-login for Booth; reconnect handling; walk-around-the-house test.
 

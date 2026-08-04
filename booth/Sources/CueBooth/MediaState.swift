@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import CueKit
 import Foundation
 
 struct NowPlaying: Equatable {
@@ -35,8 +36,12 @@ final class MediaState: ObservableObject {
     @Published var volume: Double = 0 // 0–100
     var suppressVolumePolling = false
 
+    let server = CueServer()
+
     private var payload: [String: Any] = [:]
     private var cachedArtworkData: String?
+    private var artworkMimeType: String?
+    private var cancellables = Set<AnyCancellable>()
     private var streamProcess: Process?
     private var lineBuffer = Data()
     private var volumeTimer: Timer?
@@ -54,6 +59,46 @@ final class MediaState: ObservableObject {
         pollVolume()
         volumeTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.pollVolume() }
+        }
+
+        server.onCommand = { [weak self] command in self?.handle(command) }
+        server.start()
+        Publishers.CombineLatest($nowPlaying.removeDuplicates(), $volume.removeDuplicates())
+            .debounce(for: .milliseconds(80), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.server.broadcast(self.snapshot())
+            }
+            .store(in: &cancellables)
+    }
+
+    func snapshot() -> NowPlayingState {
+        NowPlayingState(
+            title: nowPlaying.title,
+            artist: nowPlaying.artist,
+            album: nowPlaying.album,
+            sourceApp: nowPlaying.bundleIdentifier,
+            playing: nowPlaying.playing,
+            duration: nowPlaying.duration,
+            elapsedTime: nowPlaying.elapsedTime,
+            timestamp: nowPlaying.timestamp,
+            playbackRate: nowPlaying.playbackRate,
+            artworkBase64: cachedArtworkData,
+            artworkMimeType: artworkMimeType,
+            volume: volume)
+    }
+
+    func handle(_ command: CueCommand) {
+        switch command.action {
+        case .play: send("play")
+        case .pause: send("pause")
+        case .togglePlayPause: send("toggle-play-pause")
+        case .nextTrack: send("next-track")
+        case .previousTrack: send("previous-track")
+        case .skipForward15: send("skip-fifteen-seconds")
+        case .skipBack15: send("go-back-fifteen-seconds")
+        case .seek: if let value = command.value { seek(to: value) }
+        case .setVolume: if let value = command.value { setVolume(value) }
         }
     }
 
@@ -126,6 +171,7 @@ final class MediaState: ObservableObject {
         if let timestamp = payload["timestamp"] as? String {
             state.timestamp = ISO8601DateFormatter().date(from: timestamp)
         }
+        artworkMimeType = payload["artworkMimeType"] as? String
         let artworkData = payload["artworkData"] as? String
         if artworkData == cachedArtworkData {
             state.artwork = nowPlaying.artwork

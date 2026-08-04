@@ -4,7 +4,14 @@ import PackageDescription
 let package = Package(
     name: "CueBooth",
     platforms: [.macOS(.v14)],
+    dependencies: [
+        .package(path: "../CueKit")
+    ],
     targets: [
-        .executableTarget(name: "CueBooth", path: "Sources/CueBooth")
+        .executableTarget(
+            name: "CueBooth",
+            dependencies: ["CueKit"],
+            path: "Sources/CueBooth"
+        )
     ]
 )

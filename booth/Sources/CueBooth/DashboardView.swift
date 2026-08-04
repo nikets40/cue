@@ -1,5 +1,27 @@
 import SwiftUI
 
+struct ServerStatusBadge: View {
+    @ObservedObject var server: CueServer
+
+    var body: some View {
+        switch server.status {
+        case .stopped:
+            Label("server stopped", systemImage: "bolt.slash")
+                .foregroundStyle(.secondary)
+        case .starting:
+            Label("server starting…", systemImage: "bolt")
+                .foregroundStyle(.orange)
+        case .listening(let port):
+            Label("ws :\(String(port)) · \(server.clientCount) client\(server.clientCount == 1 ? "" : "s")",
+                  systemImage: "bolt.fill")
+                .foregroundStyle(.green)
+        case .failed(let message):
+            Label("server failed: \(message)", systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.red)
+        }
+    }
+}
+
 struct DashboardView: View {
     @EnvironmentObject private var media: MediaState
     @State private var seekPreview: Double?
@@ -22,12 +44,15 @@ struct DashboardView: View {
         HStack {
             Text("Cue Booth").font(.title2.bold())
             Spacer()
-            Label(
-                media.streamAlive ? "adapter streaming" : "adapter offline",
-                systemImage: media.streamAlive ? "dot.radiowaves.left.and.right" : "exclamationmark.triangle"
-            )
+            VStack(alignment: .trailing, spacing: 3) {
+                Label(
+                    media.streamAlive ? "adapter streaming" : "adapter offline",
+                    systemImage: media.streamAlive ? "dot.radiowaves.left.and.right" : "exclamationmark.triangle"
+                )
+                .foregroundStyle(media.streamAlive ? .green : .red)
+                ServerStatusBadge(server: media.server)
+            }
             .font(.caption)
-            .foregroundStyle(media.streamAlive ? .green : .red)
         }
     }
 
@@ -164,7 +189,7 @@ struct DashboardView: View {
         .font(.caption)
     }
 
-    private static func timeString(_ seconds: Double) -> String {
+    static func timeString(_ seconds: Double) -> String {
         guard seconds.isFinite, seconds >= 0 else { return "0:00" }
         let total = Int(seconds.rounded())
         if total >= 3600 {

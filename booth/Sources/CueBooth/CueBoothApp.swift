@@ -21,5 +21,28 @@ struct CueBoothApp: App {
                 .onAppear { media.start() }
         }
         .windowResizability(.contentSize)
+
+        MenuBarExtra("Cue Booth", systemImage: "music.note.tv") {
+            MenuBarView()
+                .environmentObject(media)
+        }
+    }
+}
+
+struct MenuBarView: View {
+    @EnvironmentObject private var media: MediaState
+
+    var body: some View {
+        if media.nowPlaying.isEmpty {
+            Text("Nothing playing")
+        } else {
+            Text("\(media.nowPlaying.title ?? "Untitled") — \(media.nowPlaying.artist ?? "")")
+            Button(media.nowPlaying.playing ? "Pause" : "Play") {
+                media.send("toggle-play-pause")
+            }
+            Button("Next track") { media.send("next-track") }
+        }
+        Divider()
+        Button("Quit Cue Booth") { NSApp.terminate(nil) }
     }
 }
