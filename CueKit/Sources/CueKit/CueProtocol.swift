@@ -89,6 +89,10 @@ public struct CueCommand: Codable, Equatable, Sendable {
         case seek
         /// Requires `value`: system volume 0–100.
         case setVolume
+        /// Ask for the current source's playlist (VLC only, for now).
+        case requestPlaylist
+        /// Requires `value`: the `PlaylistItem.id` to jump to.
+        case playPlaylistItem
     }
 
     public var action: Action
@@ -100,25 +104,44 @@ public struct CueCommand: Codable, Equatable, Sendable {
     }
 }
 
+public struct PlaylistItem: Codable, Equatable, Sendable, Identifiable {
+    public var id: Int
+    public var title: String
+    public var duration: Double?
+    public var isCurrent: Bool
+
+    public init(id: Int, title: String, duration: Double? = nil, isCurrent: Bool = false) {
+        self.id = id
+        self.title = title
+        self.duration = duration
+        self.isCurrent = isCurrent
+    }
+}
+
 public struct ServerMessage: Codable, Equatable, Sendable {
     public enum Kind: String, Codable, Sendable {
         case state
         /// Sent when a client's `ClientHello` token is missing or wrong; the
         /// server closes the connection right after.
         case authFailed
+        /// Reply to `requestPlaylist`. `playlist` is nil when the source has
+        /// no reachable playlist (e.g. VLC's HTTP interface is off).
+        case playlist
     }
 
     public var type: Kind
     public var state: NowPlayingState?
+    public var playlist: [PlaylistItem]?
 
     public init(state: NowPlayingState) {
         self.type = .state
         self.state = state
     }
 
-    public init(type: Kind, state: NowPlayingState? = nil) {
+    public init(type: Kind, state: NowPlayingState? = nil, playlist: [PlaylistItem]? = nil) {
         self.type = type
         self.state = state
+        self.playlist = playlist
     }
 }
 

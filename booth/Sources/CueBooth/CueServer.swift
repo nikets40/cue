@@ -69,6 +69,18 @@ final class CueServer: ObservableObject {
         }
     }
 
+    /// Playlists are pull-only: they're large and rarely change, so they're
+    /// sent in reply to `requestPlaylist` rather than inside every snapshot.
+    func sendPlaylist(_ playlist: [PlaylistItem]?) {
+        guard let data = try? CueProtocol.encoder()
+            .encode(ServerMessage(type: .playlist, playlist: playlist))
+        else { return }
+        for (id, connection) in connections
+        where authenticated.contains(id) && !providers.contains(id) {
+            send(data, over: connection)
+        }
+    }
+
     func broadcast(_ state: NowPlayingState) {
         guard let data = try? CueProtocol.encoder().encode(ServerMessage(state: state)) else { return }
         lastSnapshotData = data

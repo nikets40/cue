@@ -35,6 +35,10 @@ final class CueClient: ObservableObject {
     @Published private(set) var booths: [Booth] = []
     @Published private(set) var state: NowPlayingState?
     @Published private(set) var artwork: UIImage?
+    /// Last playlist Booth sent; nil until requested, empty when the source
+    /// has none reachable.
+    @Published private(set) var playlist: [PlaylistItem]?
+    @Published private(set) var playlistLoading = false
 
     /// Fires after every applied state message — including while the app is
     /// backgrounded (kept alive by BackgroundKeepAlive), where SwiftUI
@@ -178,9 +182,17 @@ final class CueClient: ObservableObject {
         }
     }
 
+    func requestPlaylist() {
+        playlistLoading = true
+        send(.requestPlaylist)
+    }
+
     private func handle(_ data: Data) {
         guard let message = try? CueProtocol.decoder().decode(ServerMessage.self, from: data) else { return }
         switch message.type {
+        case .playlist:
+            playlistLoading = false
+            playlist = message.playlist ?? []
         case .authFailed:
             let name = currentBooth?.name ?? "Cue Booth"
             connection?.cancel()

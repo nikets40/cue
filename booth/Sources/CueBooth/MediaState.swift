@@ -47,6 +47,7 @@ final class MediaState: ObservableObject {
 
     private let artworkUpgrader = ArtworkUpgrader()
     private let serviceDetector = ServiceDetector()
+    private lazy var vlc = VLCClient(defaults: Self.defaults)
     private var currentTrackKey = ""
     private var upgraded: ArtworkUpgrader.Upgrade?
     /// Metadata from the Chrome extension, keyed by normalized title. Every
@@ -168,6 +169,18 @@ final class MediaState: ObservableObject {
         case .skipBack15: skip(by: -15)
         case .seek: if let value = command.value { seek(to: value) }
         case .setVolume: if let value = command.value { setVolume(value) }
+        case .requestPlaylist:
+            // Ask VLC regardless of what MediaRemote currently reports — it
+            // answers only when it's running, and the client already decides
+            // when to offer the playlist.
+            Task { [weak self] in
+                guard let self else { return }
+                self.server.sendPlaylist(await self.vlc.playlist())
+            }
+        case .playPlaylistItem:
+            if let value = command.value {
+                Task { [weak self] in await self?.vlc.play(id: Int(value)) }
+            }
         }
     }
 

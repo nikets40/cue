@@ -38,6 +38,7 @@ struct RemoteView: View {
     @StateObject private var hardwareVolume = HardwareVolumeSync()
     @State private var seekPreview: Double?
     @State private var volumePreview: Double?
+    @State private var showPlaylist = false
 
     private var state: NowPlayingState { client.state ?? NowPlayingState() }
     private var brand: ServiceBrand? { state.service.flatMap(ServiceBrand.init(rawValue:)) }
@@ -60,6 +61,10 @@ struct RemoteView: View {
         .onDisappear { hardwareVolume.stop() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { hardwareVolume.start() } else { hardwareVolume.stop() }
+        }
+        .sheet(isPresented: $showPlaylist) {
+            PlaylistSheet()
+                .environmentObject(client)
         }
     }
 
@@ -114,6 +119,17 @@ struct RemoteView: View {
                 .foregroundStyle(.white.opacity(0.75))
             }
             Spacer()
+            if state.sourceApp == "org.videolan.vlc" {
+                Button {
+                    client.requestPlaylist()
+                    showPlaylist = true
+                } label: {
+                    Image(systemName: "list.bullet")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+                .padding(.trailing, 14)
+            }
             Button("Disconnect") { client.disconnect() }
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(.white.opacity(0.75))
