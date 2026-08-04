@@ -13,9 +13,28 @@
   let lastPayload = "";
   let lastPostAt = 0;
 
+  /// Streaming sites that don't publish Media Session data still need to be
+  /// identified, or the phone has no platform logo to fall back to. A playing
+  /// <video> plus the document title is enough to name the source.
+  function readVideoFallback() {
+    const video = Array.from(document.querySelectorAll("video")).find(
+      (v) => !v.paused && v.readyState > 2 && v.duration > 0
+    );
+    if (!video) return null;
+    return {
+      title: (document.title || "").replace(/\s*[-|]\s*(Netflix|Prime Video|Hotstar|JioHotstar)\s*$/i, "").trim(),
+      artist: "",
+      album: "",
+      artwork: [],
+      playbackState: "playing",
+      href: location.href,
+      fromVideoFallback: true,
+    };
+  }
+
   function read() {
     const session = navigator.mediaSession;
-    if (!session || !session.metadata) return null;
+    if (!session || !session.metadata) return readVideoFallback();
     const meta = session.metadata;
     return {
       title: meta.title || "",

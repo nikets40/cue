@@ -48,12 +48,25 @@ final class MediaState: ObservableObject {
     private let artworkUpgrader = ArtworkUpgrader()
     private let serviceDetector = ServiceDetector()
     private lazy var vlc = VLCClient(defaults: Self.defaults)
+    private lazy var posterLookup = PosterLookup(defaults: Self.defaults)
+    private var poster: PosterLookup.Poster?
     private var currentTrackKey = ""
     private var upgraded: ArtworkUpgrader.Upgrade?
     /// Metadata from the Chrome extension, keyed by normalized title. Every
     /// media tab reports, so this is a small cache rather than one slot —
     /// otherwise a paused tab reporting last would displace the playing one.
     private var pageMetadata: [String: PageMetadata] = [:]
+    private var mediaRemoteArtworkIsPlaceholder = false
+    /// Service of whichever tab reported itself playing. Video sites often
+    /// title their media session differently from what MediaRemote reports, so
+    /// the brand can't depend on a title match the way artwork does.
+    private var playingPageService: String?
+
+    /// Favicon-scale artwork, i.e. not real cover art.
+    private static func isTiny(_ image: NSImage?) -> Bool {
+        guard let representation = image?.representations.first else { return true }
+        return max(representation.pixelsWide, representation.pixelsHigh) <= 128
+    }
 
     /// Both paths resolve to the same `com.niket.cuebooth` domain, so the
     /// pairing token survives moving between `swift run` and the packaged app.
@@ -114,6 +127,7 @@ final class MediaState: ObservableObject {
             guard !key.isEmpty else { return }
             if self.pageMetadata.count > 20 { self.pageMetadata.removeAll() }
             self.pageMetadata[key] = metadata
+            if metadata.playing { self.playingPageService = metadata.service }
             self.rebuildNowPlaying()
         }
         server.start()
@@ -123,6 +137,13 @@ final class MediaState: ObservableObject {
             self.upgraded = upgrade
             self.rebuildNowPlaying()
         }
+        posterLookup.onPoster = { [weak self] poster in
+            guard let self,
+                  poster.key == Self.normalize(self.nowPlaying.title ?? "") else { return }
+            self.poster = poster
+            self.rebuildNowPlaying()
+        }
+        if posterLookup.isConfigured { log("TMDB poster lookup enabled") }
         serviceDetector.onDetect = { [weak self] trackKey, service in
             guard let self, trackKey == self.currentTrackKey else { return }
             self.currentService = service
@@ -154,9 +175,9 @@ final class MediaState: ObservableObject {
             timestamp: nowPlaying.timestamp,
             playbackRate: nowPlaying.playbackRate,
             artworkBase64: livePageMetadata(for: nowPlaying.title)?.artworkBase64
-                ?? upgraded?.base64 ?? cachedArtworkData,
+                ?? poster?.base64 ?? upgraded?.base64 ?? usableMediaRemoteArtwork,
             artworkMimeType: livePageMetadata(for: nowPlaying.title)?.artworkMimeType
-                ?? upgraded?.mimeType ?? artworkMimeType,
+                ?? poster?.mimeType ?? upgraded?.mimeType ?? artworkMimeType,
             volume: volume,
             service: currentService,
             likeStatus: livePageMetadata(for: nowPlaying.title)?.likeStatus,
@@ -280,7 +301,12 @@ final class MediaState: ObservableObject {
         if artworkData == cachedArtworkData {
             state.artwork = nowPlaying.artwork
         } else if let artworkData, let data = Data(base64Encoded: artworkData) {
-            state.artwork = NSImage(data: data)
+            let image = NSImage(data: data)
+            state.artwork = image
+            // Sites that publish no artwork leave Chrome handing macOS a
+            // favicon-sized image. Showing that would mask the platform's own
+            // logo, so it's treated as "no artwork".
+            mediaRemoteArtworkIsPlaceholder = Self.isTiny(image)
         }
         cachedArtworkData = artworkData
 
@@ -288,6 +314,7 @@ final class MediaState: ObservableObject {
         if trackKey != currentTrackKey {
             currentTrackKey = trackKey
             upgraded = nil
+            poster = nil
             currentService = nil
         }
         if let title = state.title, let artist = state.artist, !artist.isEmpty,
@@ -295,6 +322,13 @@ final class MediaState: ObservableObject {
             upgraded = artworkUpgrader.upgrade(title: title, artist: artist)
         }
         if let upgraded { state.artwork = upgraded.image }
+
+        // Video services: look the show up by title for a real poster.
+        if let service = currentService, PosterLookup.videoServices.contains(service),
+           let title = state.title, poster == nil {
+            poster = posterLookup.poster(for: title)
+        }
+        if let poster { state.artwork = poster.image }
 
         // Artwork priority: the page's own art (exact source) beats the
         // iTunes lookup, which beats MediaRemote's thumbnail.
@@ -305,11 +339,22 @@ final class MediaState: ObservableObject {
             }
             if let service = page.service { currentService = service }
         }
+        if currentService == nil, state.bundleIdentifier == "com.google.Chrome",
+           let service = playingPageService {
+            currentService = service
+        }
         if currentService == nil, let title = state.title, let bundle = state.bundleIdentifier {
             currentService = serviceDetector.detect(
                 trackKey: trackKey, title: title, bundleIdentifier: bundle)
         }
         nowPlaying = state
+    }
+
+    /// Withhold placeholder artwork when the client has a branded card to show
+    /// instead; without a known service it's still better than nothing.
+    private var usableMediaRemoteArtwork: String? {
+        if mediaRemoteArtworkIsPlaceholder, currentService != nil { return nil }
+        return cachedArtworkData
     }
 
     static func normalize(_ title: String) -> String {
