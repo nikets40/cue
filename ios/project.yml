@@ -22,6 +22,7 @@ targets:
         NSLocalNetworkUsageDescription: Cue connects to Cue Booth on your Mac to control media playback.
         NSBonjourServices: [_cue._tcp]
         NSSupportsLiveActivities: true
+        UIBackgroundModes: [audio]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
     settings:
       base:

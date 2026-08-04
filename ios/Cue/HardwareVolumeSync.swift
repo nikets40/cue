@@ -24,7 +24,9 @@ final class HardwareVolumeSync: NSObject, ObservableObject {
     func start() {
         guard !active else { return }
         active = true
-        try? session.setCategory(.ambient, options: [.mixWithOthers])
+        // Same category/options as BackgroundKeepAlive so the two never flap
+        // the shared session against each other.
+        try? session.setCategory(.playback, options: [.mixWithOthers])
         try? session.setActive(true)
 
         let view = MPVolumeView(frame: CGRect(x: -200, y: -200, width: 1, height: 1))

@@ -13,40 +13,43 @@ struct CueLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: CueActivityAttributes.self) { context in
             LockScreenCard(context: context)
-                .activityBackgroundTint(Color(red: 0.09, green: 0.08, blue: 0.13).opacity(0.92))
+                .activityBackgroundTint(Color.black.opacity(0.55))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    ArtworkThumb(data: context.state.artworkThumb, size: 52)
-                        .padding(.leading, 4)
+                    ArtworkThumb(data: context.state.artworkThumb, size: 56)
+                        .padding(.leading, 2)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(context.state.title)
-                            .font(.system(.subheadline, design: .rounded, weight: .bold))
+                            .font(.headline)
                             .lineLimit(1)
-                        Text("\(context.state.artist) · \(context.attributes.boothName)")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.65))
+                        Text(context.state.artist)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.6))
                             .lineLimit(1)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 6)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    ControlButtons(playing: context.state.playing)
-                        .padding(.trailing, 4)
+                    WaveformBadge(playing: context.state.playing)
+                        .padding(.trailing, 2)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    TrackProgress(state: context.state)
-                        .padding(.horizontal, 6)
-                        .padding(.top, 4)
+                    VStack(spacing: 10) {
+                        TimelineRow(state: context.state)
+                        TransportRow(playing: context.state.playing, glyph: 24, playGlyph: 30)
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.top, 6)
                 }
             } compactLeading: {
                 ArtworkThumb(data: context.state.artworkThumb, size: 22)
             } compactTrailing: {
-                Image(systemName: context.state.playing ? "waveform" : "pause.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.9))
+                WaveformBadge(playing: context.state.playing)
             } minimal: {
                 ArtworkThumb(data: context.state.artworkThumb, size: 22)
             }
@@ -54,75 +57,122 @@ struct CueLiveActivity: Widget {
     }
 }
 
+/// Mirrors the native Now Playing card: artwork + titles + waveform up top,
+/// ticking elapsed/remaining around a thin bar, plain-glyph transport row.
 private struct LockScreenCard: View {
     let context: ActivityViewContext<CueActivityAttributes>
 
     var body: some View {
         VStack(spacing: 10) {
             HStack(spacing: 12) {
-                ArtworkThumb(data: context.state.artworkThumb, size: 44)
+                ArtworkThumb(data: context.state.artworkThumb, size: 56)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(context.state.title)
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .font(.headline)
                         .lineLimit(1)
                     Text("\(context.state.artist) · \(context.attributes.boothName)")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.65))
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.6))
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                ControlButtons(playing: context.state.playing)
+                WaveformBadge(playing: context.state.playing)
             }
-            TrackProgress(state: context.state)
+            TimelineRow(state: context.state)
+            TransportRow(playing: context.state.playing, glyph: 26, playGlyph: 32)
+                .padding(.bottom, 2)
         }
-        .padding(14)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .foregroundStyle(.white)
     }
 }
 
-private struct ControlButtons: View {
-    let playing: Bool
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Button(intent: TogglePlayPauseIntent()) {
-                ZStack {
-                    Circle().fill(.white).frame(width: 34, height: 34)
-                    Image(systemName: playing ? "pause.fill" : "play.fill")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(Color(red: 0.09, green: 0.08, blue: 0.13))
-                }
-            }
-            .buttonStyle(.plain)
-            Button(intent: NextTrackIntent()) {
-                ZStack {
-                    Circle().fill(.white.opacity(0.16)).frame(width: 34, height: 34)
-                    Image(systemName: "forward.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-            }
-            .buttonStyle(.plain)
-        }
-    }
-}
-
-private struct TrackProgress: View {
+/// Elapsed and remaining labels tick on their own via timer-interval text —
+/// no content updates needed while playing.
+private struct TimelineRow: View {
     let state: CueActivityAttributes.ContentState
 
     var body: some View {
-        Group {
-            if state.playing {
-                ProgressView(timerInterval: state.trackInterval, countsDown: false) {
-                } currentValueLabel: {
+        HStack(spacing: 10) {
+            Group {
+                if state.playing {
+                    Text(timerInterval: state.trackInterval, countsDown: false)
+                } else {
+                    Text(Self.format(state.elapsedTime))
                 }
-            } else {
-                ProgressView(value: max(state.duration, 1) > 0 ? state.elapsedTime / max(state.duration, 1) : 0)
             }
+            .frame(width: 44, alignment: .leading)
+
+            Group {
+                if state.playing {
+                    ProgressView(timerInterval: state.trackInterval, countsDown: false) {
+                    } currentValueLabel: {
+                    }
+                } else {
+                    ProgressView(value: state.duration > 0 ? state.elapsedTime / state.duration : 0)
+                }
+            }
+            .progressViewStyle(.linear)
+            .tint(.white.opacity(0.85))
+            .frame(height: 4)
+
+            Group {
+                if state.playing {
+                    HStack(spacing: 0) {
+                        Text("−")
+                        Text(timerInterval: state.trackInterval, countsDown: true)
+                    }
+                } else {
+                    Text("−" + Self.format(max(state.duration - state.elapsedTime, 0)))
+                }
+            }
+            .frame(width: 48, alignment: .trailing)
         }
-        .progressViewStyle(.linear)
-        .tint(Color(red: 1.0, green: 0.62, blue: 0.42))
-        .frame(height: 6)
+        .font(.caption2.monospacedDigit())
+        .foregroundStyle(.white.opacity(0.6))
+    }
+
+    static func format(_ seconds: Double) -> String {
+        let total = Int(max(seconds, 0).rounded())
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+}
+
+private struct TransportRow: View {
+    let playing: Bool
+    let glyph: CGFloat
+    let playGlyph: CGFloat
+
+    var body: some View {
+        HStack(spacing: 44) {
+            Button(intent: PreviousTrackIntent()) {
+                Image(systemName: "backward.fill").font(.system(size: glyph))
+            }
+            .buttonStyle(.plain)
+            Button(intent: TogglePlayPauseIntent()) {
+                Image(systemName: playing ? "pause.fill" : "play.fill")
+                    .font(.system(size: playGlyph, weight: .semibold))
+                    .frame(width: playGlyph + 8)
+            }
+            .buttonStyle(.plain)
+            Button(intent: NextTrackIntent()) {
+                Image(systemName: "forward.fill").font(.system(size: glyph))
+            }
+            .buttonStyle(.plain)
+        }
+        .foregroundStyle(.white)
+    }
+}
+
+private struct WaveformBadge: View {
+    let playing: Bool
+
+    var body: some View {
+        Image(systemName: playing ? "waveform" : "pause.fill")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.85))
+            .symbolEffect(.variableColor.iterative, options: .repeating, isActive: playing)
     }
 }
 
@@ -146,6 +196,6 @@ private struct ArtworkThumb: View {
             }
         }
         .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.2, style: .continuous))
     }
 }

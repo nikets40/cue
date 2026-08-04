@@ -9,21 +9,29 @@ struct CueApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(client)
-                .onAppear { client.startBrowsing() }
+                .onAppear {
+                    client.startBrowsing()
+                    client.onStateUpdate = { [weak client] in
+                        guard let client else { return }
+                        var boothName: String?
+                        if case .connected(let name) = client.phase { boothName = name }
+                        LiveActivityManager.shared.sync(
+                            state: client.state, artwork: client.artwork,
+                            artworkKey: client.artworkCacheKey, boothName: boothName)
+                    }
+                }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { client.reconnectIfNeeded() }
                 }
-                .onChange(of: client.state) { _, state in
-                    var boothName: String?
-                    if case .connected(let name) = client.phase { boothName = name }
-                    LiveActivityManager.shared.sync(
-                        state: state, artwork: client.artwork,
-                        artworkKey: client.artworkCacheKey, boothName: boothName)
-                }
                 .onChange(of: client.phase) { _, phase in
                     switch phase {
-                    case .connected, .connecting: break
-                    default: LiveActivityManager.shared.endAll()
+                    case .connected:
+                        BackgroundKeepAlive.shared.start()
+                    case .connecting:
+                        break
+                    default:
+                        BackgroundKeepAlive.shared.stop()
+                        LiveActivityManager.shared.endAll()
                     }
                 }
         }

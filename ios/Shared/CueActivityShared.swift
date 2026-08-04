@@ -56,6 +56,16 @@ struct NextTrackIntent: LiveActivityIntent {
     }
 }
 
+struct PreviousTrackIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Previous Track"
+    static var isDiscoverable = false
+
+    func perform() async throws -> some IntentResult {
+        await QuickCommand.send(.previousTrack)
+        return .result()
+    }
+}
+
 // MARK: - Fire-and-refresh command channel
 
 /// A short-lived connection used from intents while the app is backgrounded:

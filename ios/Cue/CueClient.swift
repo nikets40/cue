@@ -36,6 +36,11 @@ final class CueClient: ObservableObject {
     @Published private(set) var state: NowPlayingState?
     @Published private(set) var artwork: UIImage?
 
+    /// Fires after every applied state message — including while the app is
+    /// backgrounded (kept alive by BackgroundKeepAlive), where SwiftUI
+    /// onChange isn't a reliable hook. Used to refresh the Live Activity.
+    var onStateUpdate: (() -> Void)?
+
     private var browser: NWBrowser?
     private var connection: NWConnection?
     private var currentBooth: Booth?
@@ -191,6 +196,7 @@ final class CueClient: ObservableObject {
                     .flatMap { Data(base64Encoded: $0) }
                     .flatMap { UIImage(data: $0) }
             }
+            onStateUpdate?()
         }
     }
 
