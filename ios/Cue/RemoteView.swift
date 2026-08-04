@@ -50,19 +50,21 @@ struct RemoteView: View {
 
     // MARK: - Layouts
 
+    // Pre-redesign rhythm: one centered stack with even gaps and breathing
+    // room top and bottom — controls never pinned to the bottom edge.
     private var portrait: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 28) {
             header
-            Spacer(minLength: 12)
+            Spacer(minLength: 0)
             CoverView(artwork: client.artwork, brand: brand)
-                .frame(maxWidth: 330)
-                .padding(.horizontal, 30)
+                .frame(width: 260, height: 260)
             trackInfo
-                .padding(.top, 24)
-            Spacer(minLength: 12)
-            controls
+            progressSection
+            transportSection
+            volumeSection
+            Spacer(minLength: 0)
         }
-        .padding(22)
+        .padding(24)
     }
 
     private var landscape: some View {
@@ -102,7 +104,7 @@ struct RemoteView: View {
     }
 
     private var trackInfo: some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 4) {
             Text(state.title ?? "Nothing playing")
                 .font(.system(.title3, design: .rounded, weight: .bold))
                 .foregroundStyle(.white)
