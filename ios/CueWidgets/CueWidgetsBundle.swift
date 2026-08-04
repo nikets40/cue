@@ -17,35 +17,39 @@ struct CueLiveActivity: Widget {
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
+                // The expanded presentation has a hard height budget shared by
+                // the header row and the bottom region: overflow is clipped
+                // from the end, so an oversized header silently eats the
+                // transport row. Keep the header compact, spend the room on
+                // the controls, and give them layout priority so they always
+                // survive a squeeze.
                 DynamicIslandExpandedRegion(.leading) {
-                    // Inset from the island's top corner curve so the square
-                    // thumb doesn't get clipped by the mask.
-                    ArtworkThumb(data: context.state.artworkThumb, size: 56)
+                    ArtworkThumb(data: context.state.artworkThumb, size: 46)
                         .padding(.leading, 6)
-                        .padding(.top, 8)
+                        .padding(.top, 4)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(context.state.title)
-                            .font(.headline)
+                            .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
                         Text(context.state.artist)
-                            .font(.subheadline)
+                            .font(.caption)
                             .foregroundStyle(.white.opacity(0.6))
                             .lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading, 10)
-                    .padding(.top, 12)
+                    .padding(.top, 6)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 16) {
+                    VStack(spacing: 10) {
                         TimelineRow(state: context.state)
-                        TransportRow(playing: context.state.playing, glyph: 26, playGlyph: 31)
+                        TransportRow(playing: context.state.playing, glyph: 21, playGlyph: 25)
+                            .layoutPriority(1)
                     }
                     .padding(.horizontal, 8)
-                    .padding(.top, 12)
-                    .padding(.bottom, 6)
+                    .padding(.top, 6)
                 }
             } compactLeading: {
                 ArtworkThumb(data: context.state.artworkThumb, size: 22)
