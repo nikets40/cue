@@ -105,8 +105,8 @@ final class MediaState: ObservableObject {
         case .togglePlayPause: send("toggle-play-pause")
         case .nextTrack: send("next-track")
         case .previousTrack: send("previous-track")
-        case .skipForward15: send("skip-fifteen-seconds")
-        case .skipBack15: send("go-back-fifteen-seconds")
+        case .skipForward15: skip(by: 15)
+        case .skipBack15: skip(by: -15)
         case .seek: if let value = command.value { seek(to: value) }
         case .setVolume: if let value = command.value { setVolume(value) }
         }
@@ -209,6 +209,15 @@ final class MediaState: ObservableObject {
 
     func seek(to seconds: Double) { runMediaControl(["seek", String(format: "%.2f", seconds)]) }
 
+    /// MediaRemote's native skip commands are ignored by most Chrome sites,
+    /// so skip is implemented as a relative seek instead.
+    func skip(by seconds: Double) {
+        guard let position = nowPlaying.estimatedPosition() else { return }
+        var target = max(position + seconds, 0)
+        if let duration = nowPlaying.duration { target = min(target, max(duration - 0.5, 0)) }
+        seek(to: target)
+    }
+
     private func runMediaControl(_ arguments: [String]) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: Self.mediaControlPath)
@@ -216,39 +225,23 @@ final class MediaState: ObservableObject {
         try? process.run()
     }
 
-    // MARK: - Volume (osascript for now; CoreAudio later)
+    // MARK: - Volume (CoreAudio; see SystemVolume)
+
+    private var lastVolumeSetAt = Date.distantPast
 
     func setVolume(_ value: Double) {
         volume = value
-        runAppleScript("set volume output volume \(Int(value.rounded()))") { _ in }
+        lastVolumeSetAt = Date()
+        SystemVolume.set(value)
     }
 
     private func pollVolume() {
-        guard !suppressVolumePolling else { return }
-        runAppleScript("output volume of (get volume settings)") { [weak self] output in
-            guard let value = Double(output.trimmingCharacters(in: .whitespacesAndNewlines)) else { return }
-            Task { @MainActor in
-                guard let self, !self.suppressVolumePolling else { return }
-                self.volume = value
-            }
-        }
-    }
-
-    private func runAppleScript(_ source: String, completion: @escaping (String) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-            process.arguments = ["-e", source]
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            do {
-                try process.run()
-                process.waitUntilExit()
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                completion(String(decoding: data, as: UTF8.self))
-            } catch {
-                completion("")
-            }
-        }
+        // Don't overwrite the UI mid-drag or right after a set: reading back
+        // too soon can race the hardware and make the slider snap backwards.
+        guard !suppressVolumePolling,
+              Date().timeIntervalSince(lastVolumeSetAt) > 1,
+              let value = SystemVolume.get()
+        else { return }
+        if abs(value - volume) > 0.5 { volume = value }
     }
 }

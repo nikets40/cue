@@ -156,13 +156,13 @@ struct DashboardView: View {
     private var transportSection: some View {
         HStack(spacing: 24) {
             Spacer()
-            transportButton("gobackward.15") { media.send("go-back-fifteen-seconds") }
+            transportButton("gobackward.15") { media.skip(by: -15) }
             transportButton("backward.fill") { media.send("previous-track") }
             transportButton(media.nowPlaying.playing ? "pause.circle.fill" : "play.circle.fill", size: 44) {
                 media.send("toggle-play-pause")
             }
             transportButton("forward.fill") { media.send("next-track") }
-            transportButton("goforward.15") { media.send("skip-fifteen-seconds") }
+            transportButton("goforward.15") { media.skip(by: 15) }
             Spacer()
         }
     }
