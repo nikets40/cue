@@ -38,6 +38,13 @@ final class MediaState: ObservableObject {
 
     let server = CueServer()
     private(set) var pairingToken = ""
+    /// Detected streaming service for the current track (see ServiceDetector).
+    @Published private(set) var currentService: String?
+
+    private let artworkUpgrader = ArtworkUpgrader()
+    private let serviceDetector = ServiceDetector()
+    private var currentTrackKey = ""
+    private var upgraded: ArtworkUpgrader.Upgrade?
 
     private static let defaults = UserDefaults(suiteName: "com.niket.cuebooth")!
 
@@ -73,7 +80,20 @@ final class MediaState: ObservableObject {
         server.pairingToken = pairingToken
         server.onCommand = { [weak self] command in self?.handle(command) }
         server.start()
-        Publishers.CombineLatest($nowPlaying.removeDuplicates(), $volume.removeDuplicates())
+
+        artworkUpgrader.onUpgrade = { [weak self] upgrade in
+            guard let self, upgrade.key == self.currentTrackKey else { return }
+            self.upgraded = upgrade
+            self.rebuildNowPlaying()
+        }
+        serviceDetector.onDetect = { [weak self] trackKey, service in
+            guard let self, trackKey == self.currentTrackKey else { return }
+            self.currentService = service
+        }
+
+        Publishers.CombineLatest3(
+            $nowPlaying.removeDuplicates(), $volume.removeDuplicates(),
+            $currentService.removeDuplicates())
             .debounce(for: .milliseconds(80), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self else { return }
@@ -93,9 +113,10 @@ final class MediaState: ObservableObject {
             elapsedTime: nowPlaying.elapsedTime,
             timestamp: nowPlaying.timestamp,
             playbackRate: nowPlaying.playbackRate,
-            artworkBase64: cachedArtworkData,
-            artworkMimeType: artworkMimeType,
-            volume: volume)
+            artworkBase64: upgraded?.base64 ?? cachedArtworkData,
+            artworkMimeType: upgraded != nil ? upgraded?.mimeType : artworkMimeType,
+            volume: volume,
+            service: currentService)
     }
 
     func handle(_ command: CueCommand) {
@@ -189,6 +210,22 @@ final class MediaState: ObservableObject {
             state.artwork = NSImage(data: data)
         }
         cachedArtworkData = artworkData
+
+        let trackKey = "\(state.title ?? "")|\(state.artist ?? "")"
+        if trackKey != currentTrackKey {
+            currentTrackKey = trackKey
+            upgraded = nil
+            currentService = nil
+        }
+        if let title = state.title, let artist = state.artist, !artist.isEmpty,
+           upgraded == nil {
+            upgraded = artworkUpgrader.upgrade(title: title, artist: artist)
+        }
+        if let upgraded { state.artwork = upgraded.image }
+        if currentService == nil, let title = state.title, let bundle = state.bundleIdentifier {
+            currentService = serviceDetector.detect(
+                trackKey: trackKey, title: title, bundleIdentifier: bundle)
+        }
         nowPlaying = state
     }
 

@@ -41,12 +41,16 @@ public struct NowPlayingState: Codable, Equatable, Sendable {
     public var artworkMimeType: String?
     /// System output volume, 0–100.
     public var volume: Double
+    /// Detected streaming service (e.g. "netflix", "ytmusic") for branded
+    /// fallback art on the client; nil when unknown.
+    public var service: String?
 
     public init(
         title: String? = nil, artist: String? = nil, album: String? = nil,
         sourceApp: String? = nil, playing: Bool = false, duration: Double? = nil,
         elapsedTime: Double? = nil, timestamp: Date? = nil, playbackRate: Double = 1,
-        artworkBase64: String? = nil, artworkMimeType: String? = nil, volume: Double = 0
+        artworkBase64: String? = nil, artworkMimeType: String? = nil, volume: Double = 0,
+        service: String? = nil
     ) {
         self.title = title
         self.artist = artist
@@ -60,6 +64,7 @@ public struct NowPlayingState: Codable, Equatable, Sendable {
         self.artworkBase64 = artworkBase64
         self.artworkMimeType = artworkMimeType
         self.volume = volume
+        self.service = service
     }
 
     public func estimatedPosition(at date: Date = Date()) -> Double? {
