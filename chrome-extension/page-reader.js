@@ -4,14 +4,52 @@
 // can't touch chrome.* APIs, so it posts to bridge.js instead.
 (() => {
   // The manifest injects this on page load and background.js re-injects into
-  // already-open tabs when the extension starts; only one loop should run.
-  if (window.__cueReaderInstalled) return;
-  window.__cueReaderInstalled = true;
+  // already-open tabs when the extension starts. Tear down any previous
+  // instance rather than bailing out, so reloading the extension actually
+  // replaces the running code instead of leaving the old version in place.
+  if (window.__cueReader) {
+    clearInterval(window.__cueReader.timer);
+    window.removeEventListener("message", window.__cueReader.onQueueRequest);
+  }
 
   const POLL_MS = 1000;
   const HEARTBEAT_MS = 10000;
   let lastPayload = "";
   let lastPostAt = 0;
+
+  /// Video platforms publish a generic Media Session title — Netflix reports
+  /// literally "Netflix" — so the real show name has to come from the player
+  /// UI. Returns { title, subtitle } where title is the series/film name
+  /// suitable for a poster lookup, and subtitle carries episode detail.
+  function videoSiteTitle() {
+    const host = location.hostname;
+
+    if (host.includes("netflix.")) {
+      const box = document.querySelector('[data-uia="video-title"]');
+      if (box) {
+        const series = box.querySelector("h4");
+        const detail = Array.from(box.querySelectorAll("span"))
+          .map((s) => s.textContent.trim())
+          .filter(Boolean);
+        if (series && series.textContent.trim()) {
+          return { title: series.textContent.trim(), subtitle: detail.join(" · ") };
+        }
+        const text = box.textContent.trim();
+        if (text) return { title: text, subtitle: "" };
+      }
+    }
+
+    // Hotstar and Prime Video don't expose a stable player-title hook, but
+    // both put the programme name in the document title.
+    const stripped = (document.title || "")
+      .replace(/\s*[-|–]\s*(Netflix|Prime Video|Hotstar|JioHotstar|Disney\+ Hotstar)\s*$/i, "")
+      .replace(/^\s*(Watch|Prime Video:)\s*/i, "")
+      .trim();
+    if (stripped && !/^(netflix|prime video|hotstar|jiohotstar)$/i.test(stripped)) {
+      return { title: stripped, subtitle: "" };
+    }
+    return null;
+  }
 
   /// Streaming sites that don't publish Media Session data still need to be
   /// identified, or the phone has no platform logo to fall back to. A playing
@@ -32,13 +70,27 @@
     };
   }
 
+  const VIDEO_HOSTS = /(netflix\.|hotstar\.|primevideo\.|amazon\.)/;
+
   function read() {
     const session = navigator.mediaSession;
     if (!session || !session.metadata) return readVideoFallback();
     const meta = session.metadata;
+
+    // On video platforms the session title is the brand, not the programme.
+    let title = meta.title || "";
+    let artist = meta.artist || "";
+    if (VIDEO_HOSTS.test(location.hostname)) {
+      const shown = videoSiteTitle();
+      if (shown && shown.title) {
+        title = shown.title;
+        artist = shown.subtitle || artist;
+      }
+    }
+
     return {
-      title: meta.title || "",
-      artist: meta.artist || "",
+      title,
+      artist,
       album: meta.album || "",
       artwork: (meta.artwork || []).map((art) => ({
         src: art.src || "",
@@ -94,13 +146,14 @@
     );
   }
 
-  window.addEventListener("message", (event) => {
+  function onQueueRequest(event) {
     if (event.source !== window) return;
     if (!event.data || event.data.source !== "cue-queue-request") return;
     window.postMessage({ source: "cue-queue-response", items: readQueue() }, "*");
-  });
+  }
+  window.addEventListener("message", onQueueRequest);
 
-  setInterval(() => {
+  const timer = setInterval(() => {
     const payload = read();
     if (!payload) return;
     const key = JSON.stringify(payload);
@@ -112,4 +165,6 @@
     lastPostAt = Date.now();
     window.postMessage({ source: "cue-page-reader", payload }, "*");
   }, POLL_MS);
+
+  window.__cueReader = { timer, onQueueRequest };
 })();

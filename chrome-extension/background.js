@@ -129,6 +129,7 @@ async function forward(payload) {
     playing: payload.playbackState === "playing",
     pageURL: payload.href,
     likeStatus: payload.likeStatus || null,
+    hasQueue: !!payload.hasQueue,
   };
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(message));

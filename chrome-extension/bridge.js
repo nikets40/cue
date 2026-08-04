@@ -3,7 +3,14 @@
 // for. DOM work lives here rather than in the MAIN world because only the
 // Media Session read needs the page's realm.
 
-window.addEventListener("message", (event) => {
+// Re-injection replaces the previous instance (see page-reader.js) so that
+// reloading the extension updates open tabs instead of stacking listeners.
+if (globalThis.__cueBridge) {
+  window.removeEventListener("message", globalThis.__cueBridge.onWindowMessage);
+  chrome.runtime.onMessage.removeListener(globalThis.__cueBridge.onRuntimeMessage);
+}
+
+function onWindowMessage(event) {
   if (event.source !== window) return;
   const message = event.data;
   if (!message || message.source !== "cue-page-reader") return;
@@ -16,7 +23,8 @@ window.addEventListener("message", (event) => {
   chrome.runtime.sendMessage({ type: "pageMeta", payload }).catch(() => {
     // Service worker asleep or reloading; the next poll will retry.
   });
-});
+}
+window.addEventListener("message", onWindowMessage);
 
 // --- YouTube Music DOM (selectors verified against the live player) ---
 
@@ -78,7 +86,7 @@ function playQueueIndex(index) {
   return true;
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+function onRuntimeMessage(message, _sender, sendResponse) {
   if (!message || message.type !== "cueCommand") return;
   const { command, index } = message;
   switch (command) {
@@ -99,4 +107,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       break;
   }
   return true; // keep the channel open for the async queue reply
-});
+}
+chrome.runtime.onMessage.addListener(onRuntimeMessage);
+
+globalThis.__cueBridge = { onWindowMessage, onRuntimeMessage };

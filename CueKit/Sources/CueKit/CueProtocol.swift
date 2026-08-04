@@ -239,12 +239,14 @@ public struct PageMetadata: Codable, Equatable, Sendable {
     public var artworkMimeType: String?
     public var playing: Bool
     public var pageURL: String?
+    /// Whether the page exposes a browsable queue.
+    public var hasQueue: Bool?
 
     public init(
         title: String? = nil, artist: String? = nil, album: String? = nil,
         service: String? = nil, artworkBase64: String? = nil,
         artworkMimeType: String? = nil, playing: Bool = false, pageURL: String? = nil,
-        likeStatus: String? = nil
+        likeStatus: String? = nil, hasQueue: Bool? = nil
     ) {
         self.kind = .meta
         self.likeStatus = likeStatus
@@ -256,5 +258,6 @@ public struct PageMetadata: Codable, Equatable, Sendable {
         self.artworkMimeType = artworkMimeType
         self.playing = playing
         self.pageURL = pageURL
+        self.hasQueue = hasQueue
     }
 }

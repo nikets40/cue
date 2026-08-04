@@ -57,10 +57,11 @@ final class MediaState: ObservableObject {
     /// otherwise a paused tab reporting last would displace the playing one.
     private var pageMetadata: [String: PageMetadata] = [:]
     private var mediaRemoteArtworkIsPlaceholder = false
-    /// Service of whichever tab reported itself playing. Video sites often
-    /// title their media session differently from what MediaRemote reports, so
-    /// the brand can't depend on a title match the way artwork does.
-    private var playingPageService: String?
+    /// Metadata from whichever tab reported itself playing. Video platforms
+    /// publish a generic media-session title (Netflix reports literally
+    /// "Netflix"), so for them the page is the authority on what's on screen
+    /// and a title match can't be required.
+    private var playingPageMetadata: PageMetadata?
 
     /// Favicon-scale artwork, i.e. not real cover art.
     private static func isTiny(_ image: NSImage?) -> Bool {
@@ -127,7 +128,7 @@ final class MediaState: ObservableObject {
             guard !key.isEmpty else { return }
             if self.pageMetadata.count > 20 { self.pageMetadata.removeAll() }
             self.pageMetadata[key] = metadata
-            if metadata.playing { self.playingPageService = metadata.service }
+            if metadata.playing { self.playingPageMetadata = metadata }
             self.rebuildNowPlaying()
         }
         server.start()
@@ -181,7 +182,7 @@ final class MediaState: ObservableObject {
             volume: volume,
             service: currentService,
             likeStatus: livePageMetadata(for: nowPlaying.title)?.likeStatus,
-            hasQueue: useProviderQueue
+            hasQueue: (useProviderQueue && playingPageMetadata?.hasQueue == true)
                 || nowPlaying.bundleIdentifier == VLCClient.bundleIdentifier)
     }
 
@@ -340,8 +341,19 @@ final class MediaState: ObservableObject {
             if let service = page.service { currentService = service }
         }
         if currentService == nil, state.bundleIdentifier == "com.google.Chrome",
-           let service = playingPageService {
+           let service = playingPageMetadata?.service {
             currentService = service
+        }
+        // On video platforms the page knows the programme and MediaRemote
+        // doesn't, so its title wins outright — including for the poster
+        // lookup, which would otherwise search for "Netflix".
+        if state.bundleIdentifier == "com.google.Chrome",
+           let page = playingPageMetadata,
+           let service = page.service, PosterLookup.videoServices.contains(service),
+           let pageTitle = page.title, !pageTitle.isEmpty {
+            if state.title != pageTitle { poster = nil }
+            state.title = pageTitle
+            if let detail = page.artist, !detail.isEmpty { state.artist = detail }
         }
         if currentService == nil, let title = state.title, let bundle = state.bundleIdentifier {
             currentService = serviceDetector.detect(
