@@ -20,41 +20,37 @@ struct CueLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     // Inset from the island's top corner curve so the square
                     // thumb doesn't get clipped by the mask.
-                    ArtworkThumb(data: context.state.artworkThumb, size: 48)
+                    ArtworkThumb(data: context.state.artworkThumb, size: 44)
                         .padding(.leading, 4)
-                        .padding(.top, 8)
+                        .padding(.top, 6)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(context.state.title)
-                            .font(.headline)
+                            .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
                         Text(context.state.artist)
-                            .font(.subheadline)
+                            .font(.caption)
                             .foregroundStyle(.white.opacity(0.6))
                             .lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading, 6)
-                    .padding(.top, 8)
-                }
-                DynamicIslandExpandedRegion(.trailing) {
-                    WaveformBadge(playing: context.state.playing, anchor: context.state.timestamp)
-                        .padding(.trailing, 4)
-                        .padding(.top, 14)
+                    .padding(.top, 6)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 10) {
+                    VStack(spacing: 6) {
                         TimelineRow(state: context.state)
-                        TransportRow(playing: context.state.playing, glyph: 24, playGlyph: 30)
+                        TransportRow(playing: context.state.playing, glyph: 19, playGlyph: 23)
                     }
                     .padding(.horizontal, 4)
-                    .padding(.top, 6)
                 }
             } compactLeading: {
                 ArtworkThumb(data: context.state.artworkThumb, size: 22)
             } compactTrailing: {
-                WaveformBadge(playing: context.state.playing, anchor: context.state.timestamp)
+                Image(systemName: context.state.playing ? "play.fill" : "pause.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.85))
             } minimal: {
                 ArtworkThumb(data: context.state.artworkThumb, size: 22)
             }
@@ -81,7 +77,6 @@ private struct LockScreenCard: View {
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                WaveformBadge(playing: context.state.playing, anchor: context.state.timestamp)
             }
             TimelineRow(state: context.state)
             TransportRow(playing: context.state.playing, glyph: 26, playGlyph: 32)
@@ -167,31 +162,6 @@ private struct TransportRow: View {
             .buttonStyle(.plain)
         }
         .foregroundStyle(.white)
-    }
-}
-
-/// A genuinely animating EQ: symbol effects don't run in Live Activity
-/// snapshots, but timer text does — the system re-renders it every second.
-/// CueEQ is a custom font whose digit glyphs are bar patterns, so clipping a
-/// timer string to its last two digits yields eight bars that dance at 1 Hz
-/// (ones digit) and every 10 s (tens digit), with zero content updates.
-private struct WaveformBadge: View {
-    let playing: Bool
-    let anchor: Date
-
-    var body: some View {
-        if playing {
-            Text(timerInterval: anchor...anchor.addingTimeInterval(31_536_000), countsDown: false)
-                .font(.custom("CueEQ", size: 15))
-                .fixedSize()
-                .frame(width: 21, alignment: .trailing)
-                .clipped()
-                .foregroundStyle(.white.opacity(0.85))
-        } else {
-            Image(systemName: "pause.fill")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.85))
-        }
     }
 }
 

@@ -41,7 +41,6 @@ targets:
       path: CueWidgets/Info.plist
       properties:
         CFBundleDisplayName: Cue Widgets
-        UIAppFonts: [CueEQ.ttf]
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
