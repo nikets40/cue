@@ -98,6 +98,9 @@ public struct CueCommand: Codable, Equatable, Sendable {
 public struct ServerMessage: Codable, Equatable, Sendable {
     public enum Kind: String, Codable, Sendable {
         case state
+        /// Sent when a client's `ClientHello` token is missing or wrong; the
+        /// server closes the connection right after.
+        case authFailed
     }
 
     public var type: Kind
@@ -106,5 +109,20 @@ public struct ServerMessage: Codable, Equatable, Sendable {
     public init(state: NowPlayingState) {
         self.type = .state
         self.state = state
+    }
+
+    public init(type: Kind, state: NowPlayingState? = nil) {
+        self.type = type
+        self.state = state
+    }
+}
+
+/// First message every client must send after the WebSocket opens. The server
+/// stays silent until it receives a hello with the correct pairing token.
+public struct ClientHello: Codable, Equatable, Sendable {
+    public var token: String
+
+    public init(token: String) {
+        self.token = token
     }
 }

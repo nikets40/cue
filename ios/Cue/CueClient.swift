@@ -7,6 +7,11 @@ import UIKit
 /// Discovers Cue Booth instances via Bonjour and speaks the CueKit WebSocket
 /// protocol over an NWConnection opened directly against the Bonjour endpoint
 /// (no manual host/port resolution needed).
+///
+/// Connection lifecycle: connect → send `ClientHello` with the stored pairing
+/// token → server replies with a state snapshot (paired) or `authFailed`
+/// (show the pairing screen). Drops are retried automatically unless the user
+/// disconnected on purpose.
 @MainActor
 final class CueClient: ObservableObject {
     struct Booth: Identifiable, Equatable {
@@ -22,20 +27,29 @@ final class CueClient: ObservableObject {
         case browsing
         case connecting(String)
         case connected(String)
+        case needsPairing(String)
         case failed(String)
     }
 
     @Published private(set) var phase: Phase = .browsing
     @Published private(set) var booths: [Booth] = []
-    /// Connect as soon as a single Booth appears; turned off after a manual
-    /// disconnect so the user can pick from the list.
-    private var autoConnect = true
     @Published private(set) var state: NowPlayingState?
     @Published private(set) var artwork: UIImage?
 
     private var browser: NWBrowser?
     private var connection: NWConnection?
+    private var currentBooth: Booth?
     private var artworkCacheKey: String?
+    /// Connect as soon as a single Booth appears, and retry dropped
+    /// connections; turned off by a deliberate disconnect so the user can pick
+    /// from the list.
+    private var autoConnect = true
+    private var retryScheduled = false
+
+    private var pairingToken: String {
+        get { UserDefaults.standard.string(forKey: "boothToken") ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: "boothToken") }
+    }
 
     // MARK: - Discovery
 
@@ -46,12 +60,13 @@ final class CueClient: ObservableObject {
             using: .tcp)
         browser.browseResultsChangedHandler = { [weak self] results, _ in
             Task { @MainActor in
-                self?.booths = results.compactMap { result in
+                guard let self else { return }
+                self.booths = results.compactMap { result in
                     guard case .service(let name, _, _, _) = result.endpoint else { return nil }
                     return Booth(name: name, result: result)
                 }
                 .sorted { $0.name < $1.name }
-                if let self, self.autoConnect, case .browsing = self.phase,
+                if self.autoConnect, case .browsing = self.phase,
                    self.booths.count == 1, let only = self.booths.first {
                     self.connect(to: only)
                 }
@@ -61,10 +76,19 @@ final class CueClient: ObservableObject {
         self.browser = browser
     }
 
+    /// Call when the app returns to the foreground: reconnect if the link died
+    /// while backgrounded.
+    func reconnectIfNeeded() {
+        guard autoConnect, connection == nil, let booth = currentBooth ?? booths.first else { return }
+        connect(to: booth)
+    }
+
     // MARK: - Connection
 
     func connect(to booth: Booth) {
-        disconnect()
+        connection?.cancel()
+        connection = nil
+        currentBooth = booth
         phase = .connecting(booth.name)
 
         let parameters = NWParameters.tcp
@@ -78,12 +102,11 @@ final class CueClient: ObservableObject {
                 guard let self else { return }
                 switch connectionState {
                 case .ready:
-                    self.phase = .connected(booth.name)
-                case .failed(let error):
-                    self.phase = .failed(error.localizedDescription)
-                    self.teardown()
+                    self.sendHello()
+                case .failed:
+                    self.connectionDropped()
                 case .cancelled:
-                    if self.phase != .browsing { self.phase = .browsing }
+                    break
                 default:
                     break
                 }
@@ -96,9 +119,16 @@ final class CueClient: ObservableObject {
 
     func disconnect() {
         autoConnect = false
+        currentBooth = nil
         connection?.cancel()
         teardown()
         phase = .browsing
+    }
+
+    func submitPairingCode(_ code: String) {
+        pairingToken = code.trimmingCharacters(in: .whitespaces)
+        autoConnect = true
+        if let booth = currentBooth ?? booths.first { connect(to: booth) }
     }
 
     private func teardown() {
@@ -108,42 +138,81 @@ final class CueClient: ObservableObject {
         artworkCacheKey = nil
     }
 
+    private func connectionDropped() {
+        connection?.cancel()
+        teardown()
+        guard autoConnect, let booth = currentBooth else {
+            phase = .browsing
+            return
+        }
+        phase = .connecting(booth.name)
+        guard !retryScheduled else { return }
+        retryScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.retryScheduled = false
+                if self.connection == nil, self.autoConnect, let booth = self.currentBooth {
+                    self.connect(to: booth)
+                }
+            }
+        }
+    }
+
     private func receive(over connection: NWConnection) {
         connection.receiveMessage { [weak self, weak connection] data, _, _, error in
             Task { @MainActor in
-                guard let self, let connection else { return }
+                guard let self, let connection, connection === self.connection else { return }
                 if let data, !data.isEmpty { self.handle(data) }
                 if error == nil {
                     self.receive(over: connection)
                 } else {
-                    self.phase = .failed("Connection lost")
-                    self.teardown()
+                    self.connectionDropped()
                 }
             }
         }
     }
 
     private func handle(_ data: Data) {
-        guard let message = try? CueProtocol.decoder().decode(ServerMessage.self, from: data),
-              message.type == .state, let newState = message.state
-        else { return }
-        state = newState
-        if newState.artworkBase64 != artworkCacheKey {
-            artworkCacheKey = newState.artworkBase64
-            artwork = newState.artworkBase64
-                .flatMap { Data(base64Encoded: $0) }
-                .flatMap { UIImage(data: $0) }
+        guard let message = try? CueProtocol.decoder().decode(ServerMessage.self, from: data) else { return }
+        switch message.type {
+        case .authFailed:
+            let name = currentBooth?.name ?? "Cue Booth"
+            connection?.cancel()
+            connection = nil
+            phase = .needsPairing(name)
+        case .state:
+            guard let newState = message.state else { return }
+            if case .connecting(let name) = phase { phase = .connected(name) }
+            state = newState
+            if newState.artworkBase64 != artworkCacheKey {
+                artworkCacheKey = newState.artworkBase64
+                artwork = newState.artworkBase64
+                    .flatMap { Data(base64Encoded: $0) }
+                    .flatMap { UIImage(data: $0) }
+            }
         }
     }
 
-    // MARK: - Commands
+    // MARK: - Outgoing messages
+
+    private func sendHello() {
+        guard let connection,
+              let data = try? CueProtocol.encoder().encode(ClientHello(token: pairingToken))
+        else { return }
+        sendFrame(data, over: connection)
+    }
 
     func send(_ action: CueCommand.Action, value: Double? = nil) {
         guard let connection,
               let data = try? CueProtocol.encoder().encode(CueCommand(action: action, value: value))
         else { return }
+        sendFrame(data, over: connection)
+    }
+
+    private func sendFrame(_ data: Data, over connection: NWConnection) {
         let metadata = NWProtocolWebSocket.Metadata(opcode: .text)
-        let context = NWConnection.ContentContext(identifier: "command", metadata: [metadata])
+        let context = NWConnection.ContentContext(identifier: "message", metadata: [metadata])
         connection.send(content: data, contentContext: context, isComplete: true,
                         completion: .contentProcessed { _ in })
     }

@@ -37,6 +37,9 @@ final class MediaState: ObservableObject {
     var suppressVolumePolling = false
 
     let server = CueServer()
+    private(set) var pairingToken = ""
+
+    private static let defaults = UserDefaults(suiteName: "com.niket.cuebooth")!
 
     private var payload: [String: Any] = [:]
     private var cachedArtworkData: String?
@@ -61,6 +64,13 @@ final class MediaState: ObservableObject {
             Task { @MainActor in self?.pollVolume() }
         }
 
+        if let stored = Self.defaults.string(forKey: "pairingToken"), !stored.isEmpty {
+            pairingToken = stored
+        } else {
+            pairingToken = String(format: "%06d", Int.random(in: 0...999_999))
+            Self.defaults.set(pairingToken, forKey: "pairingToken")
+        }
+        server.pairingToken = pairingToken
         server.onCommand = { [weak self] command in self?.handle(command) }
         server.start()
         Publishers.CombineLatest($nowPlaying.removeDuplicates(), $volume.removeDuplicates())

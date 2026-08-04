@@ -24,6 +24,7 @@ struct ServerStatusBadge: View {
 
 struct DashboardView: View {
     @EnvironmentObject private var media: MediaState
+    @StateObject private var launchAtLogin = LaunchAtLogin()
     @State private var seekPreview: Double?
     @State private var showRawEvent = false
 
@@ -35,9 +36,28 @@ struct DashboardView: View {
             transportSection
             volumeSection
             rawEventSection
+            footer
         }
         .padding(20)
         .frame(width: 440)
+    }
+
+    private var footer: some View {
+        HStack {
+            Label {
+                Text("Pairing code: ").foregroundStyle(.secondary)
+                    + Text(media.pairingToken).font(.body.monospacedDigit().bold())
+            } icon: {
+                Image(systemName: "key.fill").foregroundStyle(.secondary)
+            }
+            Spacer()
+            Toggle("Launch at login", isOn: Binding(
+                get: { launchAtLogin.enabled },
+                set: { _ in launchAtLogin.toggle() }
+            ))
+            .toggleStyle(.checkbox)
+        }
+        .font(.callout)
     }
 
     private var header: some View {

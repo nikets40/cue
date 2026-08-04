@@ -26,3 +26,4 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.niket.cue
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: H5NF35596Y

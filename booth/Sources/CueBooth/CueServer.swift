@@ -14,12 +14,17 @@ final class CueServer: ObservableObject {
     }
 
     @Published private(set) var status: Status = .stopped
+    /// Authenticated clients only; connections that never complete pairing are
+    /// not counted.
     @Published private(set) var clientCount = 0
 
     var onCommand: ((CueCommand) -> Void)?
+    /// Pairing token clients must present in their `ClientHello`. Set before `start()`.
+    var pairingToken = ""
 
     private var listener: NWListener?
     private var connections: [ObjectIdentifier: NWConnection] = [:]
+    private var authenticated: Set<ObjectIdentifier> = []
     private var lastSnapshotData: Data?
 
     func start(port: UInt16 = CueProtocol.defaultPort) {
@@ -57,19 +62,17 @@ final class CueServer: ObservableObject {
     func broadcast(_ state: NowPlayingState) {
         guard let data = try? CueProtocol.encoder().encode(ServerMessage(state: state)) else { return }
         lastSnapshotData = data
-        for connection in connections.values { send(data, over: connection) }
+        for (id, connection) in connections where authenticated.contains(id) {
+            send(data, over: connection)
+        }
     }
 
     private func accept(_ connection: NWConnection) {
         connections[ObjectIdentifier(connection)] = connection
-        clientCount = connections.count
         connection.stateUpdateHandler = { [weak self, weak connection] state in
             Task { @MainActor in
                 guard let self, let connection else { return }
                 switch state {
-                case .ready:
-                    // New clients immediately get the current state.
-                    if let data = self.lastSnapshotData { self.send(data, over: connection) }
                 case .failed, .cancelled:
                     self.drop(connection)
                 default:
@@ -85,17 +88,37 @@ final class CueServer: ObservableObject {
         connection.receiveMessage { [weak self, weak connection] data, _, _, error in
             Task { @MainActor in
                 guard let self, let connection else { return }
-                if let data, !data.isEmpty {
-                    if let command = try? CueProtocol.decoder().decode(CueCommand.self, from: data) {
-                        self.onCommand?(command)
-                    }
-                }
+                if let data, !data.isEmpty { self.handle(data, from: connection) }
                 if error == nil, connection.state == .ready || connection.state == .preparing {
                     self.receive(over: connection)
                 } else if error != nil {
                     self.drop(connection)
                 }
             }
+        }
+    }
+
+    private func handle(_ data: Data, from connection: NWConnection) {
+        let id = ObjectIdentifier(connection)
+        guard authenticated.contains(id) else {
+            // Silent until a correct hello arrives; wrong token gets one
+            // authFailed reply and the connection is closed.
+            if let hello = try? CueProtocol.decoder().decode(ClientHello.self, from: data),
+               !pairingToken.isEmpty, hello.token == pairingToken {
+                authenticated.insert(id)
+                clientCount = authenticated.count
+                if let snapshot = lastSnapshotData { send(snapshot, over: connection) }
+            } else if let reply = try? CueProtocol.encoder().encode(ServerMessage(type: .authFailed)) {
+                send(reply, over: connection)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, weak connection] in
+                    guard let connection else { return }
+                    Task { @MainActor in self?.drop(connection) }
+                }
+            }
+            return
+        }
+        if let command = try? CueProtocol.decoder().decode(CueCommand.self, from: data) {
+            onCommand?(command)
         }
     }
 
@@ -108,7 +131,9 @@ final class CueServer: ObservableObject {
 
     private func drop(_ connection: NWConnection) {
         connection.cancel()
-        connections.removeValue(forKey: ObjectIdentifier(connection))
-        clientCount = connections.count
+        let id = ObjectIdentifier(connection)
+        connections.removeValue(forKey: id)
+        authenticated.remove(id)
+        clientCount = authenticated.count
     }
 }
