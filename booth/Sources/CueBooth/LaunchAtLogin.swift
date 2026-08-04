@@ -1,8 +1,8 @@
 import Foundation
 
-/// Launch-at-login via a user LaunchAgent. SMAppService needs an app bundle,
-/// which this SPM executable doesn't have, so a LaunchAgent plist pointing at
-/// the current binary is used instead. Re-toggle after moving the binary.
+/// Launch-at-login via a user LaunchAgent pointing at the running executable.
+/// Works both for `swift run` (debug binary path) and for the packaged
+/// Cue Booth.app; re-toggle after moving or repackaging the app.
 @MainActor
 final class LaunchAtLogin: ObservableObject {
     static let label = "com.niket.cuebooth"
@@ -23,10 +23,19 @@ final class LaunchAtLogin: ObservableObject {
     }
 
     private func enable() {
-        let binaryPath = ProcessInfo.processInfo.arguments[0]
+        // Inside a bundle, launch via the bundle so LaunchServices treats it
+        // as the app (stable identity for TCC) rather than a loose binary.
+        let arguments: [String]
+        let bundleURL = Bundle.main.bundleURL
+        if bundleURL.pathExtension == "app" {
+            arguments = ["/usr/bin/open", "-a", bundleURL.path]
+        } else {
+            let binaryPath = (ProcessInfo.processInfo.arguments[0] as NSString).standardizingPath
+            arguments = [URL(fileURLWithPath: binaryPath).standardizedFileURL.path]
+        }
         let plist: [String: Any] = [
             "Label": Self.label,
-            "ProgramArguments": [(binaryPath as NSString).standardizingPath],
+            "ProgramArguments": arguments,
             "RunAtLoad": true,
         ]
         do {

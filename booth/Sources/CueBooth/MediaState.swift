@@ -50,7 +50,16 @@ final class MediaState: ObservableObject {
     /// otherwise a paused tab reporting last would displace the playing one.
     private var pageMetadata: [String: PageMetadata] = [:]
 
-    private static let defaults = UserDefaults(suiteName: "com.niket.cuebooth")!
+    /// Both paths resolve to the same `com.niket.cuebooth` domain, so the
+    /// pairing token survives moving between `swift run` and the packaged app.
+    /// `UserDefaults(suiteName:)` returns nil when the suite matches the
+    /// running bundle's own identifier — which is exactly the case once Booth
+    /// is packaged, so standard defaults are used there.
+    private static let defaults: UserDefaults = {
+        let domain = "com.niket.cuebooth"
+        if Bundle.main.bundleIdentifier == domain { return .standard }
+        return UserDefaults(suiteName: domain) ?? .standard
+    }()
 
     private var payload: [String: Any] = [:]
     private var cachedArtworkData: String?
@@ -62,7 +71,15 @@ final class MediaState: ObservableObject {
     private var started = false
 
     static let mediaControlPath: String = {
-        let candidates = ["/opt/homebrew/bin/media-control", "/usr/local/bin/media-control"]
+        // Prefer the copy vendored inside Cue Booth.app so a packaged build
+        // doesn't depend on the user's Homebrew install; fall back to brew
+        // when running from `swift run`.
+        var candidates: [String] = []
+        if let bundled = Bundle.main.resourceURL?
+            .appendingPathComponent("media-control/bin/media-control").path {
+            candidates.append(bundled)
+        }
+        candidates += ["/opt/homebrew/bin/media-control", "/usr/local/bin/media-control"]
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0) } ?? "media-control"
     }()
 

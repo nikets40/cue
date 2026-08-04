@@ -6,3 +6,4 @@ ios/Cue/Info.plist
 *.xcodeproj/xcuserdata/
 xcuserdata/
 DerivedData/
+dist/
