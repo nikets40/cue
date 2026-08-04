@@ -20,30 +20,32 @@ struct CueLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     // Inset from the island's top corner curve so the square
                     // thumb doesn't get clipped by the mask.
-                    ArtworkThumb(data: context.state.artworkThumb, size: 44)
-                        .padding(.leading, 4)
-                        .padding(.top, 6)
+                    ArtworkThumb(data: context.state.artworkThumb, size: 56)
+                        .padding(.leading, 6)
+                        .padding(.top, 8)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(context.state.title)
-                            .font(.subheadline.weight(.semibold))
+                            .font(.headline)
                             .lineLimit(1)
                         Text(context.state.artist)
-                            .font(.caption)
+                            .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.6))
                             .lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 6)
-                    .padding(.top, 6)
+                    .padding(.leading, 10)
+                    .padding(.top, 12)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 6) {
+                    VStack(spacing: 16) {
                         TimelineRow(state: context.state)
-                        TransportRow(playing: context.state.playing, glyph: 19, playGlyph: 23)
+                        TransportRow(playing: context.state.playing, glyph: 26, playGlyph: 31)
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 8)
+                    .padding(.top, 12)
+                    .padding(.bottom, 6)
                 }
             } compactLeading: {
                 ArtworkThumb(data: context.state.artworkThumb, size: 22)
@@ -102,7 +104,7 @@ private struct TimelineRow: View {
                     Text(Self.format(state.elapsedTime))
                 }
             }
-            .frame(width: 44, alignment: .leading)
+            .frame(width: 48, alignment: .leading)
 
             Group {
                 if state.playing {
@@ -115,7 +117,7 @@ private struct TimelineRow: View {
             }
             .progressViewStyle(.linear)
             .tint(.white.opacity(0.85))
-            .frame(height: 4)
+            .frame(height: 5)
 
             Group {
                 if state.playing {
@@ -127,9 +129,9 @@ private struct TimelineRow: View {
                     Text("−" + Self.format(max(state.duration - state.elapsedTime, 0)))
                 }
             }
-            .frame(width: 48, alignment: .trailing)
+            .frame(width: 52, alignment: .trailing)
         }
-        .font(.caption2.monospacedDigit())
+        .font(.caption.monospacedDigit())
         .foregroundStyle(.white.opacity(0.6))
     }
 
@@ -145,7 +147,7 @@ private struct TransportRow: View {
     let playGlyph: CGFloat
 
     var body: some View {
-        HStack(spacing: 44) {
+        HStack(spacing: 52) {
             Button(intent: PreviousTrackIntent()) {
                 Image(systemName: "backward.fill").font(.system(size: glyph))
             }
@@ -153,7 +155,7 @@ private struct TransportRow: View {
             Button(intent: TogglePlayPauseIntent()) {
                 Image(systemName: playing ? "pause.fill" : "play.fill")
                     .font(.system(size: playGlyph, weight: .semibold))
-                    .frame(width: playGlyph + 8)
+                    .frame(width: playGlyph + 10)
             }
             .buttonStyle(.plain)
             Button(intent: NextTrackIntent()) {
