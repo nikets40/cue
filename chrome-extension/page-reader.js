@@ -21,22 +21,37 @@
   /// literally "Netflix" — so the real show name has to come from the player
   /// UI. Returns { title, subtitle } where title is the series/film name
   /// suitable for a poster lookup, and subtitle carries episode detail.
+  // Netflix only mounts its title overlay while the player controls are
+  // visible, and they auto-hide after a few seconds. Whatever is seen is
+  // remembered per URL so the name survives the controls disappearing.
+  const stickyTitles = new Map();
+
+  function netflixTitle() {
+    const box = document.querySelector('[data-uia="video-title"]');
+    if (!box) return null;
+    const series = box.querySelector("h4");
+    const detail = Array.from(box.querySelectorAll("span"))
+      .map((s) => s.textContent.trim())
+      .filter(Boolean);
+    if (series && series.textContent.trim()) {
+      return { title: series.textContent.trim(), subtitle: detail.join(" · ") };
+    }
+    const text = box.textContent.trim();
+    return text ? { title: text, subtitle: "" } : null;
+  }
+
   function videoSiteTitle() {
     const host = location.hostname;
+    const stickyKey = location.pathname;
 
     if (host.includes("netflix.")) {
-      const box = document.querySelector('[data-uia="video-title"]');
-      if (box) {
-        const series = box.querySelector("h4");
-        const detail = Array.from(box.querySelectorAll("span"))
-          .map((s) => s.textContent.trim())
-          .filter(Boolean);
-        if (series && series.textContent.trim()) {
-          return { title: series.textContent.trim(), subtitle: detail.join(" · ") };
-        }
-        const text = box.textContent.trim();
-        if (text) return { title: text, subtitle: "" };
+      const live = netflixTitle();
+      if (live) {
+        stickyTitles.set(stickyKey, live);
+        return live;
       }
+      const remembered = stickyTitles.get(stickyKey);
+      if (remembered) return remembered;
     }
 
     // Hotstar and Prime Video don't expose a stable player-title hook, but
@@ -91,6 +106,12 @@
     return {
       title,
       artist,
+      // Temporary: lets Booth log what the page actually exposes when a
+      // platform's title can't be resolved.
+      debug: VIDEO_HOSTS.test(location.hostname)
+        ? `msTitle=${meta.title || "-"} docTitle=${document.title || "-"} ` +
+          `videoTitleEl=${!!document.querySelector('[data-uia="video-title"]')}`
+        : undefined,
       album: meta.album || "",
       artwork: (meta.artwork || []).map((art) => ({
         src: art.src || "",

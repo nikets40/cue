@@ -167,6 +167,9 @@ final class CueServer: ObservableObject {
                queue.kind == .queue {
                 onPageQueue?(queue.items)
             } else if let metadata = try? CueProtocol.decoder().decode(PageMetadata.self, from: data) {
+                if let debug = metadata.debug {
+                    log("page: title=\"\(metadata.title ?? "-")\" [\(metadata.service ?? "-")] \(debug)")
+                }
                 onPageMetadata?(metadata)
             } else {
                 log("provider sent undecodable: \(String(decoding: data.prefix(120), as: UTF8.self))")

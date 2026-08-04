@@ -241,6 +241,8 @@ public struct PageMetadata: Codable, Equatable, Sendable {
     public var pageURL: String?
     /// Whether the page exposes a browsable queue.
     public var hasQueue: Bool?
+    /// Diagnostic string from the extension, logged by Booth.
+    public var debug: String?
 
     public init(
         title: String? = nil, artist: String? = nil, album: String? = nil,

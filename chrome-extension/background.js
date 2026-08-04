@@ -113,7 +113,7 @@ async function forward(payload) {
   if (!socket || socket.readyState !== WebSocket.OPEN) return;
 
   const art = bestArtwork(payload.artwork);
-  const key = `${payload.title}|${payload.artist}|${payload.playbackState}|${art ? art.src : ""}|${payload.likeStatus}`;
+  const key = `${payload.title}|${payload.artist}|${payload.playbackState}|${art ? art.src : ""}|${payload.likeStatus}|${payload.debug || ""}`;
   if (key === lastSentKey) return;
   lastSentKey = key;
 
@@ -130,6 +130,7 @@ async function forward(payload) {
     pageURL: payload.href,
     likeStatus: payload.likeStatus || null,
     hasQueue: !!payload.hasQueue,
+    debug: payload.debug || null,
   };
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(message));
