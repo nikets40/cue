@@ -207,6 +207,26 @@ chrome.runtime.onMessage.addListener((message, sender) => {
 
 /** Content scripts are only injected on page load, so installing or reloading
  *  the extension would otherwise leave every open tab silent until reloaded. */
+/** Programmatic injection, which unlike the manifest-declared content script
+ *  reliably lands in the MAIN world on sites with a strict CSP. */
+async function injectTab(tabId) {
+  let ok = 0;
+  let lastError = "";
+  for (const [file, world] of [["page-reader.js", "MAIN"], ["bridge.js", "ISOLATED"]]) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId, allFrames: true },
+        files: [file],
+        world,
+      });
+      ok += 1;
+    } catch (error) {
+      lastError = (error && error.message) || String(error);
+    }
+  }
+  return { ok, lastError };
+}
+
 async function injectExistingTabs() {
   let tabs = [];
   try {
@@ -217,26 +237,23 @@ async function injectExistingTabs() {
   }
   let ok = 0;
   let failed = 0;
-  let lastError = "";
   for (const tab of tabs) {
     if (!tab.id) continue;
-    for (const [file, world] of [["page-reader.js", "MAIN"], ["bridge.js", "ISOLATED"]]) {
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id, allFrames: true },
-          files: [file],
-          world,
-        });
-        ok += 1;
-      } catch (error) {
-        failed += 1;
-        lastError = (error && error.message) || String(error);
-      }
-    }
+    const result = await injectTab(tab.id);
+    ok += result.ok;
+    failed += 2 - result.ok;
   }
-  report(`injected ${ok} ok / ${failed} failed across ${tabs.length} tabs` +
-    (lastError ? ` — last error: ${lastError}` : ""));
+  report(`injected ${ok} ok / ${failed} failed across ${tabs.length} tabs`);
 }
+
+// A tab reload re-runs only the manifest-declared scripts, which is not enough
+// where MAIN-world injection is refused, so every completed load is injected
+// explicitly as well.
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (info.status !== "complete") return;
+  if (!tab || !tab.url || !/^https?:/.test(tab.url)) return;
+  injectTab(tabId);
+});
 
 /** Extension-side diagnostics are invisible from outside Chrome, so they're
  *  sent to Booth, which logs them. */

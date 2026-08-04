@@ -25,9 +25,14 @@ function onWindowMessage(event) {
     likeStatus: likeStatus(),
     hasQueue: queueItems().length > 0,
   });
-  chrome.runtime.sendMessage({ type: "pageMeta", payload }).catch(() => {
-    // Service worker asleep or reloading; the next poll will retry.
-  });
+  // sendMessage throws *synchronously* once the extension context is gone
+  // (after a reload orphans this script), so .catch() alone doesn't cover it.
+  try {
+    const pending = chrome.runtime.sendMessage({ type: "pageMeta", payload });
+    if (pending && pending.catch) pending.catch(() => {});
+  } catch {
+    // Orphaned by an extension reload; a fresh copy is injected separately.
+  }
 }
 window.addEventListener("message", onWindowMessage);
 
