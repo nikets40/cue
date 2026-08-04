@@ -126,14 +126,26 @@ struct RemoteView: View {
                         client.send(.setVolume, value: value)
                     }
                 ),
-                in: 0...100,
-                onEditingChanged: { editing in
-                    if !editing {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { volumePreview = nil }
-                    }
-                }
+                in: 0...100
             )
             Image(systemName: "speaker.wave.3.fill").foregroundStyle(.secondary)
+        }
+        // Hold the locally-set value until the server's echo converges with it,
+        // instead of clearing on a timer — a timer leaves a window where a
+        // stale snapshot briefly yanks the slider back before the fresh one
+        // lands. Fallback below covers a server that quantizes far from the
+        // requested value.
+        .onChange(of: client.state?.volume) { _, echoed in
+            if let preview = volumePreview, let echoed, abs(echoed - preview) < 1 {
+                volumePreview = nil
+            }
+        }
+        .onChange(of: volumePreview) { _, preview in
+            guard preview != nil else { return }
+            let captured = preview
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                if volumePreview == captured { volumePreview = nil }
+            }
         }
     }
 

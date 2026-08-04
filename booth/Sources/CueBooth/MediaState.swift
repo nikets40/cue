@@ -238,10 +238,13 @@ final class MediaState: ObservableObject {
     private func pollVolume() {
         // Don't overwrite the UI mid-drag or right after a set: reading back
         // too soon can race the hardware and make the slider snap backwards.
+        // The 1.5 tolerance absorbs CoreAudio quantizing to hardware steps —
+        // without it every set is followed by a spurious "correction"
+        // broadcast that nudges remote sliders.
         guard !suppressVolumePolling,
-              Date().timeIntervalSince(lastVolumeSetAt) > 1,
+              Date().timeIntervalSince(lastVolumeSetAt) > 2,
               let value = SystemVolume.get()
         else { return }
-        if abs(value - volume) > 0.5 { volume = value }
+        if abs(value - volume) > 1.5 { volume = value }
     }
 }
