@@ -1,6 +1,23 @@
 import { CueBadge, CueMark } from "@/components/Logo";
 import { PhoneMock } from "@/components/PhoneMock";
 import { Reveal } from "@/components/Reveal";
+import {
+  MenuBarArt,
+  DiscoveryArt,
+  WireArt,
+  FeatureTile,
+  IconVolume,
+  IconIsland,
+  IconArtwork,
+  IconLock,
+  IconReconnect,
+  IconSkip15,
+  FaqTile,
+  IconTerminal,
+  IconWifiHome,
+  IconNoStore,
+  IconBolt,
+} from "@/components/art";
 
 const GITHUB = "https://github.com/nikets40/cue";
 
@@ -126,7 +143,7 @@ const BRANDS: { src: string; alt: string; label?: string; h: string }[] = [
   { src: "/brands/netflix.svg", alt: "Netflix", h: "h-5" },
   { src: "/brands/spotify.svg", alt: "Spotify", label: "Spotify", h: "h-7" },
   { src: "/brands/prime.svg", alt: "Prime Video", h: "h-7" },
-  { src: "/brands/hotstar.svg", alt: "Hotstar", h: "h-6 brand-img-boost" },
+  { src: "/brands/hotstar.svg", alt: "Hotstar", h: "h-6 brand-img-invert" },
   { src: "/brands/vlc.png", alt: "VLC", label: "VLC", h: "h-7" },
   { src: "/brands/youtube.svg", alt: "YouTube", label: "YouTube", h: "h-5" },
 ];
@@ -183,16 +200,19 @@ const STEPS = [
   {
     n: "01",
     title: "Booth sits in your menu bar",
+    art: <MenuBarArt />,
     body: "Cue Booth, the Mac half, reads the system Now Playing pipeline, the same one your keyboard's media keys use. When Chrome registers a playing tab, macOS treats it as the now-playing app, and Booth sees the title, artist, artwork, position, and play state. One mechanism covers every site and app, with zero per-site code.",
   },
   {
     n: "02",
     title: "Your phone finds it by itself",
+    art: <DiscoveryArt />,
     body: "Booth advertises over Bonjour on your local network. Open Cue on your iPhone and your Mac just appears. No IP addresses, no QR codes, no config file. The first connection asks for a six-digit pairing code shown on the Mac, and until a client sends the right one, the server stays silent.",
   },
   {
     n: "03",
     title: "Commands ride a direct WebSocket",
+    art: <WireArt />,
     body: "Play, pause, seek, next, volume: small JSON commands from the phone, full state snapshots pushed back from the Mac. Full snapshots instead of diffs means the phone can never drift out of sync; the worst case after a hiccup is one 80 ms update.",
   },
 ];
@@ -212,6 +232,7 @@ function HowItWorks() {
         {STEPS.map((step, i) => (
           <Reveal key={step.n} delay={i * 100}>
             <div className="h-full rounded-3xl border border-white/[0.07] bg-surface/60 p-8">
+              {step.art}
               <span className="font-mono text-[13px] font-bold text-peach">
                 {step.n}
               </span>
@@ -234,26 +255,32 @@ function HowItWorks() {
 const FEATURES = [
   {
     title: "Real system volume",
+    icon: <IconVolume />,
     body: "Cue talks to CoreAudio directly. The first attempt used osascript, which cost about 200 ms per call and queued up hopelessly under a slider drag. Now the slider feels like it's wired to the speaker, because it more or less is.",
   },
   {
     title: "Live Activity + Dynamic Island",
+    icon: <IconIsland />,
     body: "Transport controls on the lock screen, an animated equalizer while music plays, and a progress bar that keeps ticking while the app is backgrounded. No push entitlement required — it works on a free Apple ID.",
   },
   {
     title: "Album art worth looking at",
+    icon: <IconArtwork />,
     body: "Chrome hands over small, muddy artwork. Booth quietly upgrades music covers to 600 px via the iTunes Search API and caches them per track. Netflix and friends get proper brand cards instead of a gray square.",
   },
   {
     title: "Paired, not exposed",
+    icon: <IconLock />,
     body: "The control port stays silent until a client sends the right six-digit code. No banner, no handshake, nothing. A wrong code gets a rejection and a closed connection. Your roommate's laptop can't pause your movie.",
   },
   {
     title: "Reconnects like it never left",
+    icon: <IconReconnect />,
     body: "Dropped Wi-Fi, a restarted Booth, a backgrounded app: the phone retries every two seconds and again the moment it returns to the foreground. Walk to the kitchen and back; the scrubber is still ticking.",
   },
   {
     title: "±15 seconds that actually works",
+    icon: <IconSkip15 />,
     body: "Most sites ignore MediaRemote's native skip commands but honor plain seek. So Cue's skip buttons are implemented as relative seeks: current position, plus or minus fifteen. Small hack, works everywhere.",
   },
 ];
@@ -273,6 +300,7 @@ function Features() {
         {FEATURES.map((f, i) => (
           <Reveal key={f.title} delay={(i % 3) * 100}>
             <div className="h-full rounded-3xl border border-white/[0.07] bg-surface/60 p-8 transition-colors hover:border-white/[0.14]">
+              <FeatureTile>{f.icon}</FeatureTile>
               <h3 className="text-[17px] font-bold tracking-tight">{f.title}</h3>
               <p className="mt-3 text-[14.5px] leading-relaxed text-ink-2">
                 {f.body}
@@ -311,6 +339,30 @@ function Install() {
             You&apos;ll need macOS with Xcode, Homebrew, and an iPhone that
             shares Wi-Fi with the Mac.
           </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-surface/60 py-3 pl-3 pr-5">
+              <CueBadge className="h-10 w-10 rounded-[11px]" />
+              <div>
+                <div className="text-[14px] font-bold leading-tight">Cue</div>
+                <div className="mt-0.5 text-[11.5px] text-ink-3">
+                  iPhone · sideload via Xcode
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-surface/60 py-3 pl-3 pr-5">
+              <span className="flex h-10 w-10 items-center justify-center rounded-[11px] border border-white/[0.1] bg-stage-2">
+                <CueMark className="h-5 w-5" />
+              </span>
+              <div>
+                <div className="text-[14px] font-bold leading-tight">
+                  Cue Booth
+                </div>
+                <div className="mt-0.5 text-[11.5px] text-ink-3">
+                  macOS · menu bar server
+                </div>
+              </div>
+            </div>
+          </div>
         </Reveal>
         <Reveal delay={120} className="min-w-0">
           <div className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0b0a11]">
@@ -351,18 +403,22 @@ function Install() {
 const FAQ = [
   {
     q: "Why does it need a Homebrew package?",
+    icon: <IconTerminal />,
     a: "Since macOS 15.4, Apple restricts the private MediaRemote framework to entitled processes. media-control is the community workaround: it loads the framework through an Apple-signed perl binary and streams JSON out. It's Cue's only unofficial dependency, and the first thing to check after a macOS update: media-control test tells you in two seconds whether the pipeline survived.",
   },
   {
     q: "Does it work away from home?",
+    icon: <IconWifiHome />,
     a: "No, and that's a design choice, not a limitation to fix later. The phone and Mac must share a network and the Mac must be awake. There's no relay, no account, and no way for anyone outside your Wi-Fi to reach the control port.",
   },
   {
     q: "Why isn't it on the App Store?",
+    icon: <IconNoStore />,
     a: "It controls your Mac over a private protocol and depends on a private framework. Not App Store material, and it was never meant to be. Sideloading with a free Apple ID works fine; a paid developer account just removes the weekly re-sign.",
   },
   {
     q: "What doesn't work?",
+    icon: <IconBolt />,
     a: "\"Next episode\" on Netflix — that's a UI button, not a media-key concept, so no remote can press it through this pipeline. Play, pause, seek, and volume work everywhere. Also honest: keeping the connection alive in the background costs some battery while you're connected.",
   },
 ];
@@ -382,6 +438,7 @@ function FinePrint() {
         {FAQ.map((item, i) => (
           <Reveal key={item.q} delay={(i % 2) * 100}>
             <div className="h-full rounded-3xl border border-white/[0.07] bg-surface/40 p-8">
+              <FaqTile>{item.icon}</FaqTile>
               <h3 className="text-[16.5px] font-bold tracking-tight">{item.q}</h3>
               <p className="mt-3 text-[14.5px] leading-relaxed text-ink-2">
                 {item.a}

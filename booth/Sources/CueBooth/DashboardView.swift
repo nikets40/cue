@@ -12,9 +12,15 @@ struct ServerStatusBadge: View {
             Label("server starting…", systemImage: "bolt")
                 .foregroundStyle(.orange)
         case .listening(let port):
-            Label("ws :\(String(port)) · \(server.clientCount) client\(server.clientCount == 1 ? "" : "s")",
-                  systemImage: "bolt.fill")
-                .foregroundStyle(.green)
+            HStack(spacing: 8) {
+                Label("ws :\(String(port)) · \(server.clientCount) client\(server.clientCount == 1 ? "" : "s")",
+                      systemImage: "bolt.fill")
+                    .foregroundStyle(.green)
+                Label(
+                    server.providerConnected ? "extension" : "no extension",
+                    systemImage: server.providerConnected ? "puzzlepiece.extension.fill" : "puzzlepiece.extension")
+                    .foregroundStyle(server.providerConnected ? .green : .secondary)
+            }
         case .failed(let message):
             Label("server failed: \(message)", systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.red)

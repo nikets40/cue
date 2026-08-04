@@ -19,12 +19,16 @@ final class CueServer: ObservableObject {
     @Published private(set) var clientCount = 0
 
     var onCommand: ((CueCommand) -> Void)?
+    var onPageMetadata: ((PageMetadata) -> Void)?
     /// Pairing token clients must present in their `ClientHello`. Set before `start()`.
     var pairingToken = ""
+    /// True while the Chrome extension is connected.
+    @Published private(set) var providerConnected = false
 
     private var listener: NWListener?
     private var connections: [ObjectIdentifier: NWConnection] = [:]
     private var authenticated: Set<ObjectIdentifier> = []
+    private var providers: Set<ObjectIdentifier> = []
     private var lastSnapshotData: Data?
 
     func start(port: UInt16 = CueProtocol.defaultPort) {
@@ -62,7 +66,8 @@ final class CueServer: ObservableObject {
     func broadcast(_ state: NowPlayingState) {
         guard let data = try? CueProtocol.encoder().encode(ServerMessage(state: state)) else { return }
         lastSnapshotData = data
-        for (id, connection) in connections where authenticated.contains(id) {
+        for (id, connection) in connections
+        where authenticated.contains(id) && !providers.contains(id) {
             send(data, over: connection)
         }
     }
@@ -101,13 +106,18 @@ final class CueServer: ObservableObject {
     private func handle(_ data: Data, from connection: NWConnection) {
         let id = ObjectIdentifier(connection)
         guard authenticated.contains(id) else {
-            // Silent until a correct hello arrives; wrong token gets one
+            // Silent until a valid hello arrives; a bad one gets a single
             // authFailed reply and the connection is closed.
             if let hello = try? CueProtocol.decoder().decode(ClientHello.self, from: data),
-               !pairingToken.isEmpty, hello.token == pairingToken {
+               accept(hello, from: connection) {
                 authenticated.insert(id)
-                clientCount = authenticated.count
-                if let snapshot = lastSnapshotData { send(snapshot, over: connection) }
+                if hello.role == .provider {
+                    providers.insert(id)
+                    providerConnected = true
+                } else {
+                    clientCount = authenticated.subtracting(providers).count
+                    if let snapshot = lastSnapshotData { send(snapshot, over: connection) }
+                }
             } else if let reply = try? CueProtocol.encoder().encode(ServerMessage(type: .authFailed)) {
                 send(reply, over: connection)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, weak connection] in
@@ -117,8 +127,31 @@ final class CueServer: ObservableObject {
             }
             return
         }
+        if providers.contains(id) {
+            if let metadata = try? CueProtocol.decoder().decode(PageMetadata.self, from: data) {
+                onPageMetadata?(metadata)
+            }
+            return
+        }
         if let command = try? CueProtocol.decoder().decode(CueCommand.self, from: data) {
             onCommand?(command)
+        }
+    }
+
+    private func accept(_ hello: ClientHello, from connection: NWConnection) -> Bool {
+        if hello.role == .provider { return Self.isLoopback(connection) }
+        return !pairingToken.isEmpty && hello.token == pairingToken
+    }
+
+    /// The extension runs on this machine and has no way to read the pairing
+    /// token, so provider connections are authorized by origin instead.
+    private static func isLoopback(_ connection: NWConnection) -> Bool {
+        guard case .hostPort(let host, _)? = connection.currentPath?.remoteEndpoint
+        else { return false }
+        switch host {
+        case .ipv4(let address): return address.isLoopback
+        case .ipv6(let address): return address.isLoopback || address.asIPv4?.isLoopback == true
+        default: return false
         }
     }
 
@@ -134,6 +167,8 @@ final class CueServer: ObservableObject {
         let id = ObjectIdentifier(connection)
         connections.removeValue(forKey: id)
         authenticated.remove(id)
-        clientCount = authenticated.count
+        providers.remove(id)
+        providerConnected = !providers.isEmpty
+        clientCount = authenticated.subtracting(providers).count
     }
 }

@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Cue Bridge",
+  "version": "1.0.0",
+  "description": "Sends the playing tab's media details to Cue Booth so your phone shows full-resolution artwork and the right source.",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["page-reader.js"],
+      "world": "MAIN",
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["bridge.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ]
+}

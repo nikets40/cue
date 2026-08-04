@@ -125,9 +125,50 @@ public struct ServerMessage: Codable, Equatable, Sendable {
 /// First message every client must send after the WebSocket opens. The server
 /// stays silent until it receives a hello with the correct pairing token.
 public struct ClientHello: Codable, Equatable, Sendable {
-    public var token: String
+    public enum Role: String, Codable, Sendable {
+        /// A remote (the iPhone app): receives state, sends commands.
+        case controller
+        /// A metadata source (the Chrome extension): sends `PageMetadata`.
+        /// Accepted without a token when connecting over loopback, since it
+        /// runs on the same machine as Booth and can't reach the token.
+        case provider
+    }
 
-    public init(token: String) {
+    public var token: String
+    public var role: Role?
+
+    public init(token: String, role: Role? = nil) {
         self.token = token
+        self.role = role
+    }
+}
+
+/// Sent by the Chrome extension: the page's own Media Session metadata, which
+/// carries full-resolution artwork and an unambiguous source — both better
+/// than anything MediaRemote exposes.
+public struct PageMetadata: Codable, Equatable, Sendable {
+    public var title: String?
+    public var artist: String?
+    public var album: String?
+    /// Slug matching the client's bundled brand cards (e.g. "netflix").
+    public var service: String?
+    public var artworkBase64: String?
+    public var artworkMimeType: String?
+    public var playing: Bool
+    public var pageURL: String?
+
+    public init(
+        title: String? = nil, artist: String? = nil, album: String? = nil,
+        service: String? = nil, artworkBase64: String? = nil,
+        artworkMimeType: String? = nil, playing: Bool = false, pageURL: String? = nil
+    ) {
+        self.title = title
+        self.artist = artist
+        self.album = album
+        self.service = service
+        self.artworkBase64 = artworkBase64
+        self.artworkMimeType = artworkMimeType
+        self.playing = playing
+        self.pageURL = pageURL
     }
 }

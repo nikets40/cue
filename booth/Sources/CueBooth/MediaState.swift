@@ -45,6 +45,10 @@ final class MediaState: ObservableObject {
     private let serviceDetector = ServiceDetector()
     private var currentTrackKey = ""
     private var upgraded: ArtworkUpgrader.Upgrade?
+    /// Metadata from the Chrome extension, keyed by normalized title. Every
+    /// media tab reports, so this is a small cache rather than one slot —
+    /// otherwise a paused tab reporting last would displace the playing one.
+    private var pageMetadata: [String: PageMetadata] = [:]
 
     private static let defaults = UserDefaults(suiteName: "com.niket.cuebooth")!
 
@@ -79,6 +83,14 @@ final class MediaState: ObservableObject {
         }
         server.pairingToken = pairingToken
         server.onCommand = { [weak self] command in self?.handle(command) }
+        server.onPageMetadata = { [weak self] metadata in
+            guard let self, let title = metadata.title else { return }
+            let key = Self.normalize(title)
+            guard !key.isEmpty else { return }
+            if self.pageMetadata.count > 20 { self.pageMetadata.removeAll() }
+            self.pageMetadata[key] = metadata
+            self.rebuildNowPlaying()
+        }
         server.start()
 
         artworkUpgrader.onUpgrade = { [weak self] upgrade in
@@ -113,8 +125,10 @@ final class MediaState: ObservableObject {
             elapsedTime: nowPlaying.elapsedTime,
             timestamp: nowPlaying.timestamp,
             playbackRate: nowPlaying.playbackRate,
-            artworkBase64: upgraded?.base64 ?? cachedArtworkData,
-            artworkMimeType: upgraded != nil ? upgraded?.mimeType : artworkMimeType,
+            artworkBase64: livePageMetadata(for: nowPlaying.title)?.artworkBase64
+                ?? upgraded?.base64 ?? cachedArtworkData,
+            artworkMimeType: livePageMetadata(for: nowPlaying.title)?.artworkMimeType
+                ?? upgraded?.mimeType ?? artworkMimeType,
             volume: volume,
             service: currentService)
     }
@@ -222,11 +236,37 @@ final class MediaState: ObservableObject {
             upgraded = artworkUpgrader.upgrade(title: title, artist: artist)
         }
         if let upgraded { state.artwork = upgraded.image }
+
+        // Artwork priority: the page's own art (exact source) beats the
+        // iTunes lookup, which beats MediaRemote's thumbnail.
+        if let page = livePageMetadata(for: state.title) {
+            if let base64 = page.artworkBase64, let data = Data(base64Encoded: base64),
+               let image = NSImage(data: data) {
+                state.artwork = image
+            }
+            if let service = page.service { currentService = service }
+        }
         if currentService == nil, let title = state.title, let bundle = state.bundleIdentifier {
             currentService = serviceDetector.detect(
                 trackKey: trackKey, title: title, bundleIdentifier: bundle)
         }
         nowPlaying = state
+    }
+
+    static func normalize(_ title: String) -> String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    /// The extension reports every media tab; only the entry whose title
+    /// matches the system's now-playing track describes what's audible.
+    private func livePageMetadata(for title: String?) -> PageMetadata? {
+        guard let title else { return nil }
+        let key = Self.normalize(title)
+        guard !key.isEmpty else { return nil }
+        if let exact = pageMetadata[key] { return exact }
+        // Sites sometimes decorate the title ("Song (Official Video)"), so
+        // fall back to a containment match.
+        return pageMetadata.first { key.contains($0.key) || $0.key.contains(key) }?.value
     }
 
     private static func prettyEvent(_ payload: [String: Any]) -> String {
