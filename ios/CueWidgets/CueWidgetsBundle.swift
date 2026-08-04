@@ -17,46 +17,37 @@ struct CueLiveActivity: Widget {
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
-                // The expanded presentation has a hard height budget shared by
-                // the header row and the bottom region: overflow is clipped
-                // from the end, so an oversized header silently eats the
-                // transport row. Keep the header compact, spend the room on
-                // the controls, and give them layout priority so they always
-                // survive a squeeze.
+                // Island stays informational — artwork, track, timeline. The
+                // transport lives on the lock-screen card, where there's room
+                // for it without fighting the island's height budget.
                 DynamicIslandExpandedRegion(.leading) {
-                    ArtworkThumb(data: context.state.artworkThumb, size: 46)
+                    ArtworkThumb(data: context.state.artworkThumb, size: 52)
                         .padding(.leading, 6)
-                        .padding(.top, 4)
+                        .padding(.top, 6)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(context.state.title)
-                            .font(.subheadline.weight(.semibold))
+                            .font(.headline)
                             .lineLimit(1)
                         Text(context.state.artist)
-                            .font(.caption)
+                            .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.6))
                             .lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading, 10)
-                    .padding(.top, 6)
+                    .padding(.top, 10)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 10) {
-                        TimelineRow(state: context.state)
-                        TransportRow(playing: context.state.playing, glyph: 21, playGlyph: 25)
-                            .layoutPriority(1)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.top, 6)
+                    TimelineRow(state: context.state)
+                        .padding(.horizontal, 8)
+                        .padding(.top, 10)
                 }
             } compactLeading: {
                 ArtworkThumb(data: context.state.artworkThumb, size: 22)
             } compactTrailing: {
-                Image(systemName: context.state.playing ? "play.fill" : "pause.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.85))
+                EmptyView()
             } minimal: {
                 ArtworkThumb(data: context.state.artworkThumb, size: 22)
             }

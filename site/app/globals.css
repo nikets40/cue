@@ -123,6 +123,44 @@ body {
   }
 }
 
+/* ---------- brand marquee ---------- */
+.marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 12%,
+    black 88%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 12%,
+    black 88%,
+    transparent
+  );
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 36s linear infinite;
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+}
+.brand-img {
+  filter: brightness(0) invert(1);
+  opacity: 0.62;
+}
+
 /* ---------- ticking progress bar in the phone mock ---------- */
 @keyframes tick {
   from {

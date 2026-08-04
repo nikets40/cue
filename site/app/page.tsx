@@ -117,16 +117,44 @@ function Hero() {
   );
 }
 
-/* ---------- Services strip ---------- */
+/* ---------- Services marquee ---------- */
 
-const SERVICES = [
-  "YouTube Music",
-  "Netflix",
-  "Prime Video",
-  "Hotstar",
-  "Spotify",
-  "VLC",
+/* Brand vectors converted from the app's bundled fallback cards
+   (ios/.../Brands, originally Wikimedia Commons). Rendered monochrome. */
+const BRANDS: { src: string; alt: string; label?: string; h: string }[] = [
+  { src: "/brands/ytmusic.svg", alt: "YouTube Music", label: "YouTube Music", h: "h-7" },
+  { src: "/brands/netflix.svg", alt: "Netflix", h: "h-5" },
+  { src: "/brands/spotify.svg", alt: "Spotify", label: "Spotify", h: "h-7" },
+  { src: "/brands/prime.svg", alt: "Prime Video", h: "h-7" },
+  { src: "/brands/hotstar.svg", alt: "Hotstar", h: "h-6" },
+  { src: "/brands/vlc.png", alt: "VLC", label: "VLC", h: "h-7" },
+  { src: "/brands/youtube.svg", alt: "YouTube", label: "YouTube", h: "h-5" },
 ];
+
+function BrandRow({ hidden = false }: { hidden?: boolean }) {
+  return (
+    <div
+      className="flex items-center gap-14 pr-14 sm:gap-16 sm:pr-16"
+      aria-hidden={hidden || undefined}
+    >
+      {BRANDS.map((b) => (
+        <span key={b.alt} className="flex shrink-0 items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={b.src}
+            alt={hidden ? "" : b.alt}
+            className={`${b.h} w-auto brand-img`}
+          />
+          {b.label && (
+            <span className="whitespace-nowrap text-[15px] font-bold text-ink-2/70">
+              {b.label}
+            </span>
+          )}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function Services() {
   return (
@@ -135,14 +163,15 @@ function Services() {
         <p className="text-center text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-3">
           One remote for everything in the Now Playing pipeline
         </p>
-        <div className="mt-7 flex flex-wrap items-center justify-center gap-x-10 gap-y-4 text-[17px] font-bold text-ink-2/80">
-          {SERVICES.map((s) => (
-            <span key={s}>{s}</span>
-          ))}
-          <span className="text-[14px] font-medium text-ink-3">
-            …and anything else Chrome plays
-          </span>
+        <div className="marquee mt-10">
+          <div className="marquee-track">
+            <BrandRow />
+            <BrandRow hidden />
+          </div>
         </div>
+        <p className="mt-8 text-center text-[13.5px] text-ink-3">
+          …and anything else Chrome registers as Now Playing.
+        </p>
       </Reveal>
     </section>
   );

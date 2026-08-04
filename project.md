@@ -40,6 +40,7 @@ cue/
   booth/              ← Cue Booth, macOS app (SPM executable; `cd booth && swift run`)
   CueKit/             ← (M1) shared Swift package: protocol models used by both apps
   ios/                ← (M2) Cue iOS app, Xcode project
+  site/               ← landing page (Next.js + Tailwind; `cd site && npm run dev`)
 ```
 
 ## Key decisions
