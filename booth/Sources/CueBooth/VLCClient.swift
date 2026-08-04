@@ -53,6 +53,7 @@ final class VLCClient {
             title: node["name"] as? String ?? "Untitled",
             duration: duration.flatMap { $0 > 0 ? $0 : nil },
             isCurrent: node["current"] != nil))
+        // VLC plays local files, so there's no thumbnail URL to hand over.
     }
 
     private func get(_ path: String) async -> [String: Any]? {

@@ -46,31 +46,25 @@ function queueItems() {
   return Array.from(document.querySelectorAll("ytmusic-player-queue-item"));
 }
 
-/** The current row is the one whose play button is playing or paused;
- *  the `selected` attribute lands on several rows and can't be trusted. */
-function isCurrent(item) {
-  const state = item.getAttribute("play-button-state");
-  return state === "playing" || state === "paused";
-}
-
-function parseDuration(text) {
-  if (!text) return null;
-  const parts = text.trim().split(":").map(Number);
-  if (parts.some(Number.isNaN)) return null;
-  return parts.reduce((total, part) => total * 60 + part, 0);
-}
-
-function readQueue() {
-  return queueItems().map((item, index) => {
-    const columns = Array.from(item.querySelectorAll("yt-formatted-string")).map((e) =>
-      e.textContent.trim()
-    );
-    return {
-      id: index,
-      title: item.querySelector(".song-title")?.textContent.trim() || columns[0] || "Untitled",
-      duration: parseDuration(columns.find((c) => /^\d+:\d{2}$/.test(c))),
-      isCurrent: isCurrent(item),
-    };
+/** Queue contents live on a JS property only the MAIN world can read, so
+ *  page-reader.js builds the list and answers over window.postMessage. */
+function readQueue(timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    let settled = false;
+    function onMessage(event) {
+      if (event.source !== window) return;
+      if (!event.data || event.data.source !== "cue-queue-response") return;
+      settled = true;
+      window.removeEventListener("message", onMessage);
+      resolve(event.data.items || []);
+    }
+    window.addEventListener("message", onMessage);
+    window.postMessage({ source: "cue-queue-request" }, "*");
+    setTimeout(() => {
+      if (settled) return;
+      window.removeEventListener("message", onMessage);
+      resolve([]);
+    }, timeoutMs);
   });
 }
 
@@ -87,23 +81,22 @@ function playQueueIndex(index) {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || message.type !== "cueCommand") return;
   const { command, index } = message;
-  let result = { ok: false };
   switch (command) {
     case "toggleLike":
-      result = { ok: clickLike("like"), likeStatus: likeStatus() };
+      sendResponse({ ok: clickLike("like"), likeStatus: likeStatus() });
       break;
     case "toggleDislike":
-      result = { ok: clickLike("dislike"), likeStatus: likeStatus() };
+      sendResponse({ ok: clickLike("dislike"), likeStatus: likeStatus() });
       break;
     case "requestQueue":
-      result = { ok: true, items: readQueue() };
+      readQueue().then((items) => sendResponse({ ok: true, items }));
       break;
     case "playQueueItem":
-      result = { ok: playQueueIndex(index) };
+      sendResponse({ ok: playQueueIndex(index) });
       break;
     default:
+      sendResponse({ ok: false });
       break;
   }
-  sendResponse(result);
-  return true;
+  return true; // keep the channel open for the async queue reply
 });

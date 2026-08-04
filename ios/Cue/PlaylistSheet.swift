@@ -1,7 +1,52 @@
 import CueKit
 import SwiftUI
 
-/// VLC's playlist, pulled on demand. Tapping an entry jumps VLC to it.
+/// Queue row artwork. URLs are loaded straight from the source's CDN — the
+/// alternative, shipping a few hundred images through Booth, would dwarf the
+/// rest of the protocol. Falls back to a marker for sources without artwork
+/// (VLC's local files) and marks the playing row.
+private struct QueueThumbnail: View {
+    let item: PlaylistItem
+
+    var body: some View {
+        ZStack {
+            if let urlString = item.artworkURL, let url = URL(string: urlString) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    default:
+                        placeholder
+                    }
+                }
+            } else {
+                placeholder
+            }
+            if item.isCurrent {
+                Color.black.opacity(0.45)
+                Image(systemName: "speaker.wave.2.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+        }
+        .frame(width: 44, height: 44)
+        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+    }
+
+    private var placeholder: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color(red: 0.17, green: 0.15, blue: 0.25), Color(red: 0.09, green: 0.08, blue: 0.12)],
+                startPoint: .topLeading, endPoint: .bottomTrailing)
+            Image(systemName: "music.note")
+                .font(.system(size: 15))
+                .foregroundStyle(.white.opacity(0.35))
+        }
+    }
+}
+
+/// The playing source's queue, pulled on demand — the browser tab's when the
+/// extension is providing, otherwise VLC's.
 struct PlaylistSheet: View {
     @EnvironmentObject private var client: CueClient
     @Environment(\.dismiss) private var dismiss
@@ -19,14 +64,19 @@ struct PlaylistSheet: View {
                             dismiss()
                         } label: {
                             HStack(spacing: 12) {
-                                Image(systemName: item.isCurrent ? "speaker.wave.2.fill" : "music.note")
-                                    .font(.footnote)
-                                    .foregroundStyle(item.isCurrent ? .white : .white.opacity(0.4))
-                                    .frame(width: 20)
-                                Text(item.title)
-                                    .lineLimit(1)
-                                    .foregroundStyle(item.isCurrent ? .white : .white.opacity(0.85))
-                                Spacer()
+                                QueueThumbnail(item: item)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.title)
+                                        .lineLimit(1)
+                                        .foregroundStyle(item.isCurrent ? .white : .white.opacity(0.9))
+                                    if let subtitle = item.subtitle, !subtitle.isEmpty {
+                                        Text(subtitle)
+                                            .font(.caption)
+                                            .lineLimit(1)
+                                            .foregroundStyle(.white.opacity(0.5))
+                                    }
+                                }
+                                Spacer(minLength: 8)
                                 if let duration = item.duration {
                                     Text(RemoteView.timeString(duration))
                                         .font(.caption.monospacedDigit())

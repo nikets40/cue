@@ -118,14 +118,24 @@ public struct CueCommand: Codable, Equatable, Sendable {
 public struct PlaylistItem: Codable, Equatable, Sendable, Identifiable {
     public var id: Int
     public var title: String
+    /// Artist or byline, when the source provides one.
+    public var subtitle: String?
     public var duration: Double?
     public var isCurrent: Bool
+    /// Remote thumbnail the client loads directly — sending a few hundred
+    /// images as data would dwarf the rest of the protocol.
+    public var artworkURL: String?
 
-    public init(id: Int, title: String, duration: Double? = nil, isCurrent: Bool = false) {
+    public init(
+        id: Int, title: String, subtitle: String? = nil, duration: Double? = nil,
+        isCurrent: Bool = false, artworkURL: String? = nil
+    ) {
         self.id = id
         self.title = title
+        self.subtitle = subtitle
         self.duration = duration
         self.isCurrent = isCurrent
+        self.artworkURL = artworkURL
     }
 }
 
