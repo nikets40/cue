@@ -34,6 +34,8 @@ enum ServiceBrand: String {
 struct RemoteView: View {
     @EnvironmentObject private var client: CueClient
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var hardwareVolume = HardwareVolumeSync()
     @State private var seekPreview: Double?
     @State private var volumePreview: Double?
 
@@ -46,6 +48,19 @@ struct RemoteView: View {
             if verticalSizeClass == .compact { landscape } else { portrait }
         }
         .preferredColorScheme(.dark)
+        .onAppear {
+            hardwareVolume.onVolumeStep = { delta in
+                let current = volumePreview ?? client.state?.volume ?? 50
+                let target = min(max(current + delta, 0), 100)
+                volumePreview = target
+                client.send(.setVolume, value: target)
+            }
+            if scenePhase == .active { hardwareVolume.start() }
+        }
+        .onDisappear { hardwareVolume.stop() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { hardwareVolume.start() } else { hardwareVolume.stop() }
+        }
     }
 
     // MARK: - Layouts
