@@ -1,0 +1,279 @@
+<title>Cue — Logo Concepts</title>
+<style>
+  :root {
+    --bg: #f3f2f5;
+    --surface: #ffffff;
+    --ink: #17161d;
+    --ink-2: #55525f;
+    --ink-3: #8b8894;
+    --line: #e2e0e7;
+    --accent: #e8a33d;
+    --accent-deep: #c77f1a;
+    --stage: #14131c;
+    --stage-2: #1e1c2a;
+    --tile-ink: #f5efe2;
+    --go: #3fa46a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121118;
+      --surface: #1a1922;
+      --ink: #efedf3;
+      --ink-2: #b3b0bd;
+      --ink-3: #757281;
+      --line: #2a2833;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121118; --surface: #1a1922; --ink: #efedf3;
+    --ink-2: #b3b0bd; --ink-3: #757281; --line: #2a2833;
+  }
+  :root[data-theme="light"] {
+    --bg: #f3f2f5; --surface: #ffffff; --ink: #17161d;
+    --ink-2: #55525f; --ink-3: #8b8894; --line: #e2e0e7;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Helvetica Neue", sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 56px 24px 96px; }
+
+  header.hero { margin-bottom: 56px; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-deep); font-weight: 650; margin-bottom: 14px;
+  }
+  h1 {
+    font-family: ui-rounded, system-ui, sans-serif;
+    font-size: clamp(34px, 5vw, 52px);
+    line-height: 1.05; margin: 0 0 14px; letter-spacing: -.02em;
+    text-wrap: balance;
+  }
+  .lede { max-width: 60ch; color: var(--ink-2); font-size: 17px; margin: 0; }
+
+  section.concept {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 34px 34px 30px;
+    margin-bottom: 28px;
+  }
+  .concept-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+  .concept h2 {
+    font-family: ui-rounded, system-ui, sans-serif;
+    font-size: 24px; margin: 0; letter-spacing: -.01em;
+  }
+  .pick {
+    font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: #fff; background: var(--go); border-radius: 99px; padding: 4px 12px;
+  }
+  .concept > p.rationale { color: var(--ink-2); max-width: 64ch; margin: 6px 0 26px; }
+
+  .board { display: flex; gap: 26px; flex-wrap: wrap; align-items: flex-end; }
+  .cell { display: flex; flex-direction: column; gap: 10px; }
+  .cell .cap { font-size: 12px; color: var(--ink-3); letter-spacing: .04em; }
+
+  .mark-stage {
+    width: 168px; height: 168px; border-radius: 24px;
+    background: radial-gradient(120% 120% at 30% 20%, var(--stage-2), var(--stage));
+    display: grid; place-items: center;
+  }
+  .icon-tile {
+    width: 104px; height: 104px; border-radius: 24px;
+    display: grid; place-items: center;
+    box-shadow: 0 10px 24px rgb(10 8 20 / .28);
+  }
+  .tile-grad { background: linear-gradient(150deg, #2b2740 0%, #16141f 62%, #100e17 100%); }
+  .tile-amber { background: linear-gradient(150deg, #f3b756 0%, #e8a33d 45%, #b96f12 100%); }
+  .tile-paper { background: linear-gradient(150deg, #ffffff, #ece9f0); border: 1px solid var(--line); box-shadow: 0 8px 20px rgb(10 8 20 / .12); }
+  .glyph-row { display: flex; gap: 18px; align-items: center; height: 104px; }
+  .menubar {
+    height: 30px; border-radius: 8px; padding: 0 12px;
+    background: var(--stage-2); display: flex; align-items: center; gap: 10px;
+    color: #cfccd8; font-size: 12px;
+  }
+  .footnote { color: var(--ink-3); font-size: 13px; margin-top: 20px; max-width: 66ch; }
+
+  .verdict {
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 14px; padding: 22px 26px; margin-top: 40px;
+  }
+  .verdict h3 { margin: 0 0 8px; font-family: ui-rounded, system-ui, sans-serif; font-size: 18px; }
+  .verdict p { margin: 0; color: var(--ink-2); max-width: 70ch; }
+  strong { color: var(--ink); }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">Cue · Identity exploration 01</div>
+    <h1>A mark you can find on a Lock Screen at arm's length.</h1>
+    <p class="lede">Four directions for the Cue app pair. Every concept is tested in the places it will actually live: the iOS home screen, the macOS menu bar at 18&nbsp;pixels, and a Live Activity. The brand world is the theater booth — house lights down, one warm tungsten signal.</p>
+  </header>
+
+  <!-- ================= CONCEPT 1 : Q-PLAY ================= -->
+  <section class="concept">
+    <div class="concept-head">
+      <h2>1 · The Q-Play</h2><span class="pick">Recommended</span>
+    </div>
+    <p class="rationale">Cue is pronounced <strong>Q</strong> — so the monogram writes itself: a ring with its tail swapped for a play triangle. One shape says both the name and the job. It survives at any size, needs no text, and the tail naturally points “go.”</p>
+    <div class="board">
+      <div class="cell">
+        <div class="mark-stage">
+          <svg width="112" height="112" viewBox="0 0 112 112">
+            <circle cx="53" cy="51" r="30" fill="none" stroke="#e8a33d" stroke-width="11"/>
+            <polygon points="70,66 92,88 74,94" fill="#e8a33d" transform="rotate(-8 78 80)"/>
+          </svg>
+        </div>
+        <span class="cap">Primary mark</span>
+      </div>
+      <div class="cell">
+        <div class="icon-tile tile-grad">
+          <svg width="62" height="62" viewBox="0 0 112 112">
+            <circle cx="53" cy="51" r="30" fill="none" stroke="#e8a33d" stroke-width="11"/>
+            <polygon points="70,66 92,88 74,94" fill="#e8a33d" transform="rotate(-8 78 80)"/>
+          </svg>
+        </div>
+        <span class="cap">App icon · stage + tungsten</span>
+      </div>
+      <div class="cell">
+        <div class="icon-tile tile-amber">
+          <svg width="62" height="62" viewBox="0 0 112 112">
+            <circle cx="53" cy="51" r="30" fill="none" stroke="#16141f" stroke-width="11"/>
+            <polygon points="70,66 92,88 74,94" fill="#16141f" transform="rotate(-8 78 80)"/>
+          </svg>
+        </div>
+        <span class="cap">App icon · reversed</span>
+      </div>
+      <div class="cell">
+        <div class="glyph-row">
+          <div class="menubar">
+            <svg width="15" height="15" viewBox="0 0 112 112">
+              <circle cx="53" cy="51" r="30" fill="none" stroke="#cfccd8" stroke-width="13"/>
+              <polygon points="70,66 94,90 74,96" fill="#cfccd8" transform="rotate(-8 78 80)"/>
+            </svg>
+            <span>Cue Booth</span>
+          </div>
+        </div>
+        <span class="cap">Menu bar, 15 px template glyph</span>
+      </div>
+    </div>
+    <p class="footnote">Why it wins: it is the only direction that stays legible as a one-color 15&nbsp;px template in the menu bar <em>and</em> reads as a wordless “play” affordance on the Live Activity button cluster.</p>
+  </section>
+
+  <!-- ================= CONCEPT 2 : CUE LIGHT ================= -->
+  <section class="concept">
+    <div class="concept-head"><h2>2 · The Cue Light</h2></div>
+    <p class="rationale">In a real theater, the stage manager gives cues with a small signal lamp: <strong>standby, then go</strong>. A dot with radiating arcs — half beacon, half “broadcasting to your phone.” Warmer and more narrative, slightly less obviously about media.</p>
+    <div class="board">
+      <div class="cell">
+        <div class="mark-stage">
+          <svg width="112" height="112" viewBox="0 0 112 112">
+            <circle cx="44" cy="68" r="15" fill="#e8a33d"/>
+            <path d="M 62 50 A 26 26 0 0 1 70 68" fill="none" stroke="#e8a33d" stroke-width="9" stroke-linecap="round" transform="rotate(-45 44 68)"/>
+            <path d="M 74 38 A 43 43 0 0 1 87 68" fill="none" stroke="#8e6b31" stroke-width="9" stroke-linecap="round" transform="rotate(-45 44 68)"/>
+          </svg>
+        </div>
+        <span class="cap">Primary mark</span>
+      </div>
+      <div class="cell">
+        <div class="icon-tile tile-grad">
+          <svg width="62" height="62" viewBox="0 0 112 112">
+            <circle cx="44" cy="68" r="15" fill="#e8a33d"/>
+            <path d="M 62 50 A 26 26 0 0 1 70 68" fill="none" stroke="#e8a33d" stroke-width="9" stroke-linecap="round" transform="rotate(-45 44 68)"/>
+            <path d="M 74 38 A 43 43 0 0 1 87 68" fill="none" stroke="#8e6b31" stroke-width="9" stroke-linecap="round" transform="rotate(-45 44 68)"/>
+          </svg>
+        </div>
+        <span class="cap">App icon</span>
+      </div>
+      <div class="cell">
+        <div class="icon-tile tile-paper">
+          <svg width="62" height="62" viewBox="0 0 112 112">
+            <circle cx="44" cy="68" r="15" fill="#c77f1a"/>
+            <path d="M 62 50 A 26 26 0 0 1 70 68" fill="none" stroke="#c77f1a" stroke-width="9" stroke-linecap="round" transform="rotate(-45 44 68)"/>
+            <path d="M 74 38 A 43 43 0 0 1 87 68" fill="none" stroke="#dcb884" stroke-width="9" stroke-linecap="round" transform="rotate(-45 44 68)"/>
+          </svg>
+        </div>
+        <span class="cap">Light tile</span>
+      </div>
+    </div>
+    <p class="footnote">Risk: at glance-size it can read as a Wi-Fi or AirDrop glyph — the exact system icons it would sit next to in the menu bar.</p>
+  </section>
+
+  <!-- ================= CONCEPT 3 : C-PLAY ================= -->
+  <section class="concept">
+    <div class="concept-head"><h2>3 · The C-Play</h2></div>
+    <p class="rationale">The literal route: a bold <strong>C</strong> whose counter holds a play triangle. Friendly, instantly decodes as “media app that starts with C.” The safest of the four — and the one a hundred other media utilities would also pick.</p>
+    <div class="board">
+      <div class="cell">
+        <div class="mark-stage">
+          <svg width="112" height="112" viewBox="0 0 112 112">
+            <path d="M 78 30 A 34 34 0 1 0 78 82" fill="none" stroke="#e8a33d" stroke-width="13" stroke-linecap="round"/>
+            <polygon points="48,42 48,70 72,56" fill="#e8a33d"/>
+          </svg>
+        </div>
+        <span class="cap">Primary mark</span>
+      </div>
+      <div class="cell">
+        <div class="icon-tile tile-grad">
+          <svg width="62" height="62" viewBox="0 0 112 112">
+            <path d="M 78 30 A 34 34 0 1 0 78 82" fill="none" stroke="#e8a33d" stroke-width="13" stroke-linecap="round"/>
+            <polygon points="48,42 48,70 72,56" fill="#e8a33d"/>
+          </svg>
+        </div>
+        <span class="cap">App icon</span>
+      </div>
+      <div class="cell">
+        <div class="icon-tile tile-amber">
+          <svg width="62" height="62" viewBox="0 0 112 112">
+            <path d="M 78 30 A 34 34 0 1 0 78 82" fill="none" stroke="#16141f" stroke-width="13" stroke-linecap="round"/>
+            <polygon points="48,42 48,70 72,56" fill="#16141f"/>
+          </svg>
+        </div>
+        <span class="cap">Reversed</span>
+      </div>
+    </div>
+    <p class="footnote">Solid but generic — it describes the category, not this product.</p>
+  </section>
+
+  <!-- ================= CONCEPT 4 : CUE CARD ================= -->
+  <section class="concept">
+    <div class="concept-head"><h2>4 · The Cue Card</h2></div>
+    <p class="rationale">A stage direction written on a card: rounded rectangle, folded corner, one line of “script” and a position dot — the progress bar as identity. Distinctive and calm, closest to the app's actual UI furniture.</p>
+    <div class="board">
+      <div class="cell">
+        <div class="mark-stage">
+          <svg width="112" height="112" viewBox="0 0 112 112">
+            <path d="M 24 34 h 44 l 20 20 v 24 a 10 10 0 0 1 -10 10 h -54 a 10 10 0 0 1 -10 -10 v -34 a 10 10 0 0 1 10 -10 z" fill="none" stroke="#e8a33d" stroke-width="8"/>
+            <path d="M 68 34 v 20 h 20" fill="none" stroke="#e8a33d" stroke-width="8" stroke-linejoin="round"/>
+            <line x1="28" y1="72" x2="76" y2="72" stroke="#8e6b31" stroke-width="8" stroke-linecap="round"/>
+            <circle cx="52" cy="72" r="9" fill="#e8a33d"/>
+          </svg>
+        </div>
+        <span class="cap">Primary mark</span>
+      </div>
+      <div class="cell">
+        <div class="icon-tile tile-grad">
+          <svg width="62" height="62" viewBox="0 0 112 112">
+            <path d="M 24 34 h 44 l 20 20 v 24 a 10 10 0 0 1 -10 10 h -54 a 10 10 0 0 1 -10 -10 v -34 a 10 10 0 0 1 10 -10 z" fill="none" stroke="#e8a33d" stroke-width="8"/>
+            <path d="M 68 34 v 20 h 20" fill="none" stroke="#e8a33d" stroke-width="8" stroke-linejoin="round"/>
+            <line x1="28" y1="72" x2="76" y2="72" stroke="#8e6b31" stroke-width="8" stroke-linecap="round"/>
+            <circle cx="52" cy="72" r="9" fill="#e8a33d"/>
+          </svg>
+        </div>
+        <span class="cap">App icon</span>
+      </div>
+    </div>
+    <p class="footnote">Ages well, but the fold + line + dot is three ideas; at 15&nbsp;px it collapses into noise.</p>
+  </section>
+
+  <div class="verdict">
+    <h3>Studio recommendation</h3>
+    <p><strong>Ship the Q-Play</strong> on the stage-gradient tile, with the tungsten amber <code>#E8A33D</code> as the single brand accent across both apps. Keep the Cue Light as the <em>connection-state motif inside the UI</em> (standby amber → paired green) rather than as the logo — that way the second-best idea still earns its keep. Wordmark: “Cue” set in SF&nbsp;Rounded Semibold beside the mark; Booth uses the same mark, one-color, as its menu-bar template glyph.</p>
+  </div>
+</div>
