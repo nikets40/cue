@@ -64,6 +64,7 @@ struct RemoteView: View {
             volumeSection
                 .padding(.top, 18)
             Spacer(minLength: 0)
+                .frame(maxHeight: 10)
         }
         .padding(24)
     }

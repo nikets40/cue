@@ -13,6 +13,19 @@ struct CueApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { client.reconnectIfNeeded() }
                 }
+                .onChange(of: client.state) { _, state in
+                    var boothName: String?
+                    if case .connected(let name) = client.phase { boothName = name }
+                    LiveActivityManager.shared.sync(
+                        state: state, artwork: client.artwork,
+                        artworkKey: client.artworkCacheKey, boothName: boothName)
+                }
+                .onChange(of: client.phase) { _, phase in
+                    switch phase {
+                    case .connected, .connecting: break
+                    default: LiveActivityManager.shared.endAll()
+                    }
+                }
         }
     }
 }

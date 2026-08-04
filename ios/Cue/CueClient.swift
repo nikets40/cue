@@ -39,7 +39,7 @@ final class CueClient: ObservableObject {
     private var browser: NWBrowser?
     private var connection: NWConnection?
     private var currentBooth: Booth?
-    private var artworkCacheKey: String?
+    private(set) var artworkCacheKey: String?
     /// Connect as soon as a single Booth appears, and retry dropped
     /// connections; turned off by a deliberate disconnect so the user can pick
     /// from the list.

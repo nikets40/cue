@@ -10,9 +10,10 @@ targets:
   Cue:
     type: application
     platform: iOS
-    sources: [Cue]
+    sources: [Cue, Shared]
     dependencies:
       - package: CueKit
+      - target: CueWidgets
     info:
       path: Cue/Info.plist
       properties:
@@ -20,6 +21,7 @@ targets:
         CFBundleDisplayName: Cue
         NSLocalNetworkUsageDescription: Cue connects to Cue Booth on your Mac to control media playback.
         NSBonjourServices: [_cue._tcp]
+        NSSupportsLiveActivities: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
     settings:
       base:
@@ -28,3 +30,21 @@ targets:
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: H5NF35596Y
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  CueWidgets:
+    type: app-extension
+    platform: iOS
+    sources: [CueWidgets, Shared]
+    dependencies:
+      - package: CueKit
+    info:
+      path: CueWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Cue Widgets
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.niket.cue.widgets
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: H5NF35596Y
