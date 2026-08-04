@@ -1,0 +1,198 @@
+import AppKit
+import Combine
+import Foundation
+
+struct NowPlaying: Equatable {
+    var title: String?
+    var artist: String?
+    var album: String?
+    var bundleIdentifier: String?
+    var playing = false
+    var duration: Double?
+    var elapsedTime: Double?
+    var timestamp: Date?
+    var playbackRate: Double = 1
+    var artwork: NSImage?
+
+    var isEmpty: Bool { title == nil && bundleIdentifier == nil }
+
+    /// Elapsed time extrapolated from the last update — the stream only emits
+    /// position on change, not continuously.
+    func estimatedPosition(at date: Date = Date()) -> Double? {
+        guard let elapsedTime else { return nil }
+        guard playing, let timestamp else { return elapsedTime }
+        let position = elapsedTime + date.timeIntervalSince(timestamp) * playbackRate
+        if let duration { return min(position, duration) }
+        return position
+    }
+}
+
+@MainActor
+final class MediaState: ObservableObject {
+    @Published private(set) var nowPlaying = NowPlaying()
+    @Published private(set) var rawEvent = "(no events yet)"
+    @Published private(set) var streamAlive = false
+    @Published var volume: Double = 0 // 0–100
+    var suppressVolumePolling = false
+
+    private var payload: [String: Any] = [:]
+    private var cachedArtworkData: String?
+    private var streamProcess: Process?
+    private var lineBuffer = Data()
+    private var volumeTimer: Timer?
+    private var started = false
+
+    static let mediaControlPath: String = {
+        let candidates = ["/opt/homebrew/bin/media-control", "/usr/local/bin/media-control"]
+        return candidates.first { FileManager.default.isExecutableFile(atPath: $0) } ?? "media-control"
+    }()
+
+    func start() {
+        guard !started else { return }
+        started = true
+        startStream()
+        pollVolume()
+        volumeTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.pollVolume() }
+        }
+    }
+
+    // MARK: - Now-playing stream
+
+    private func startStream() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: Self.mediaControlPath)
+        process.arguments = ["stream"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let chunk = handle.availableData
+            Task { @MainActor in self?.consume(chunk) }
+        }
+        process.terminationHandler = { [weak self] _ in
+            Task { @MainActor in
+                self?.streamAlive = false
+                // Auto-restart: the adapter occasionally exits when the media app quits.
+                try? await Task.sleep(for: .seconds(2))
+                self?.startStream()
+            }
+        }
+        do {
+            try process.run()
+            streamProcess = process
+            streamAlive = true
+        } catch {
+            rawEvent = "Failed to launch \(Self.mediaControlPath): \(error.localizedDescription)"
+            streamAlive = false
+        }
+    }
+
+    private func consume(_ chunk: Data) {
+        lineBuffer.append(chunk)
+        while let newline = lineBuffer.firstIndex(of: UInt8(ascii: "\n")) {
+            let line = lineBuffer.prefix(upTo: newline)
+            lineBuffer.removeSubrange(...newline)
+            if !line.isEmpty { apply(line: Data(line)) }
+        }
+    }
+
+    private func apply(line: Data) {
+        guard let event = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
+              event["type"] as? String == "data",
+              let eventPayload = event["payload"] as? [String: Any]
+        else { return }
+
+        if event["diff"] as? Bool == true {
+            for (key, value) in eventPayload {
+                if value is NSNull { payload.removeValue(forKey: key) } else { payload[key] = value }
+            }
+        } else {
+            payload = eventPayload
+        }
+        rebuildNowPlaying()
+        rawEvent = Self.prettyEvent(payload)
+    }
+
+    private func rebuildNowPlaying() {
+        var state = NowPlaying()
+        state.title = payload["title"] as? String
+        state.artist = payload["artist"] as? String
+        state.album = payload["album"] as? String
+        state.bundleIdentifier = payload["bundleIdentifier"] as? String
+        state.playing = payload["playing"] as? Bool ?? false
+        state.duration = payload["duration"] as? Double
+        state.elapsedTime = payload["elapsedTime"] as? Double
+        state.playbackRate = payload["playbackRate"] as? Double ?? 1
+        if let timestamp = payload["timestamp"] as? String {
+            state.timestamp = ISO8601DateFormatter().date(from: timestamp)
+        }
+        let artworkData = payload["artworkData"] as? String
+        if artworkData == cachedArtworkData {
+            state.artwork = nowPlaying.artwork
+        } else if let artworkData, let data = Data(base64Encoded: artworkData) {
+            state.artwork = NSImage(data: data)
+        }
+        cachedArtworkData = artworkData
+        nowPlaying = state
+    }
+
+    private static func prettyEvent(_ payload: [String: Any]) -> String {
+        var display = payload
+        if let artwork = display["artworkData"] as? String {
+            display["artworkData"] = "<\(artwork.count) chars base64>"
+        }
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: display, options: [.prettyPrinted, .sortedKeys])
+        else { return "\(display)" }
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    // MARK: - Commands
+
+    func send(_ command: String) { runMediaControl([command]) }
+
+    func seek(to seconds: Double) { runMediaControl(["seek", String(format: "%.2f", seconds)]) }
+
+    private func runMediaControl(_ arguments: [String]) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: Self.mediaControlPath)
+        process.arguments = arguments
+        try? process.run()
+    }
+
+    // MARK: - Volume (osascript for now; CoreAudio later)
+
+    func setVolume(_ value: Double) {
+        volume = value
+        runAppleScript("set volume output volume \(Int(value.rounded()))") { _ in }
+    }
+
+    private func pollVolume() {
+        guard !suppressVolumePolling else { return }
+        runAppleScript("output volume of (get volume settings)") { [weak self] output in
+            guard let value = Double(output.trimmingCharacters(in: .whitespacesAndNewlines)) else { return }
+            Task { @MainActor in
+                guard let self, !self.suppressVolumePolling else { return }
+                self.volume = value
+            }
+        }
+    }
+
+    private func runAppleScript(_ source: String, completion: @escaping (String) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            process.arguments = ["-e", source]
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            do {
+                try process.run()
+                process.waitUntilExit()
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                completion(String(decoding: data, as: UTF8.self))
+            } catch {
+                completion("")
+            }
+        }
+    }
+}
