@@ -41,7 +41,9 @@ struct CueLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     TimelineRow(state: context.state)
-                        .padding(.horizontal, 8)
+                        // Match the artwork's leading inset so the timeline
+                        // lines up with the header above it.
+                        .padding(.horizontal, 6)
                         .padding(.top, 10)
                 }
             } compactLeading: {
@@ -99,6 +101,10 @@ private struct TimelineRow: View {
                     Text(Self.format(state.elapsedTime))
                 }
             }
+            // Timer text reserves a slot wider than its glyphs, so the
+            // alignment has to be set on the text itself, not just the frame,
+            // or the labels drift away from the margins.
+            .multilineTextAlignment(.leading)
             .frame(width: 48, alignment: .leading)
 
             Group {
@@ -119,11 +125,13 @@ private struct TimelineRow: View {
                     HStack(spacing: 0) {
                         Text("−")
                         Text(timerInterval: state.trackInterval, countsDown: true)
+                            .multilineTextAlignment(.trailing)
                     }
                 } else {
                     Text("−" + Self.format(max(state.duration - state.elapsedTime, 0)))
                 }
             }
+            .multilineTextAlignment(.trailing)
             .frame(width: 52, alignment: .trailing)
         }
         .font(.caption.monospacedDigit())

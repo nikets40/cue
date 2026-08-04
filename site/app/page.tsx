@@ -126,7 +126,7 @@ const BRANDS: { src: string; alt: string; label?: string; h: string }[] = [
   { src: "/brands/netflix.svg", alt: "Netflix", h: "h-5" },
   { src: "/brands/spotify.svg", alt: "Spotify", label: "Spotify", h: "h-7" },
   { src: "/brands/prime.svg", alt: "Prime Video", h: "h-7" },
-  { src: "/brands/hotstar.svg", alt: "Hotstar", h: "h-6" },
+  { src: "/brands/hotstar.svg", alt: "Hotstar", h: "h-6 brand-img-boost" },
   { src: "/brands/vlc.png", alt: "VLC", label: "VLC", h: "h-7" },
   { src: "/brands/youtube.svg", alt: "YouTube", label: "YouTube", h: "h-5" },
 ];
