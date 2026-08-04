@@ -105,6 +105,9 @@ final class MediaState: ObservableObject {
         }
         server.pairingToken = pairingToken
         server.onCommand = { [weak self] command in self?.handle(command) }
+        server.onPageQueue = { [weak self] items in
+            self?.server.sendPlaylist(items)
+        }
         server.onPageMetadata = { [weak self] metadata in
             guard let self, let title = metadata.title else { return }
             let key = Self.normalize(title)
@@ -155,7 +158,10 @@ final class MediaState: ObservableObject {
             artworkMimeType: livePageMetadata(for: nowPlaying.title)?.artworkMimeType
                 ?? upgraded?.mimeType ?? artworkMimeType,
             volume: volume,
-            service: currentService)
+            service: currentService,
+            likeStatus: livePageMetadata(for: nowPlaying.title)?.likeStatus,
+            hasQueue: useProviderQueue
+                || nowPlaying.bundleIdentifier == VLCClient.bundleIdentifier)
     }
 
     func handle(_ command: CueCommand) {
@@ -170,18 +176,33 @@ final class MediaState: ObservableObject {
         case .seek: if let value = command.value { seek(to: value) }
         case .setVolume: if let value = command.value { setVolume(value) }
         case .requestPlaylist:
-            // Ask VLC regardless of what MediaRemote currently reports — it
-            // answers only when it's running, and the client already decides
-            // when to offer the playlist.
+            // Prefer the browser queue when the extension is providing for the
+            // current source; the reply arrives asynchronously as a PageQueue.
+            if useProviderQueue, server.sendToProvider(ProviderCommand(command: .requestQueue)) {
+                return
+            }
             Task { [weak self] in
                 guard let self else { return }
                 self.server.sendPlaylist(await self.vlc.playlist())
             }
         case .playPlaylistItem:
-            if let value = command.value {
-                Task { [weak self] in await self?.vlc.play(id: Int(value)) }
+            guard let value = command.value else { return }
+            if useProviderQueue,
+               server.sendToProvider(ProviderCommand(command: .playQueueItem, index: Int(value))) {
+                return
             }
+            Task { [weak self] in await self?.vlc.play(id: Int(value)) }
+        case .toggleLike:
+            server.sendToProvider(ProviderCommand(command: .toggleLike))
+        case .toggleDislike:
+            server.sendToProvider(ProviderCommand(command: .toggleDislike))
         }
+    }
+
+    /// The extension only controls browser tabs, so route queue actions to it
+    /// only while the browser owns playback.
+    private var useProviderQueue: Bool {
+        server.providerConnected && nowPlaying.bundleIdentifier == "com.google.Chrome"
     }
 
     // MARK: - Now-playing stream

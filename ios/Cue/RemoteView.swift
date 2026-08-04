@@ -119,7 +119,7 @@ struct RemoteView: View {
                 .foregroundStyle(.white.opacity(0.75))
             }
             Spacer()
-            if state.sourceApp == "org.videolan.vlc" {
+            if state.hasQueue {
                 Button {
                     client.requestPlaylist()
                     showPlaylist = true
@@ -147,7 +147,29 @@ struct RemoteView: View {
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.66))
                 .lineLimit(1)
+            if state.likeStatus != nil {
+                HStack(spacing: 26) {
+                    rateButton("hand.thumbsdown", active: state.likeStatus == "dislike") {
+                        client.send(.toggleDislike)
+                    }
+                    rateButton("hand.thumbsup", active: state.likeStatus == "like") {
+                        client.send(.toggleLike)
+                    }
+                }
+                .padding(.top, 8)
+            }
         }
+    }
+
+    private func rateButton(
+        _ symbol: String, active: Bool, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: active ? "\(symbol).fill" : symbol)
+                .font(.system(size: 17))
+                .foregroundStyle(active ? .white : .white.opacity(0.55))
+        }
+        .buttonStyle(.plain)
     }
 
     private var controls: some View {

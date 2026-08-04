@@ -10,6 +10,8 @@ let socket = null;
 let connecting = false;
 const artworkCache = new Map(); // artwork src -> { base64, mimeType }
 let lastSentKey = "";
+/** Tab that last reported itself as playing — the one commands act on. */
+let playingTabId = null;
 
 const SERVICES = [
   ["music.youtube.com", "ytmusic"],
@@ -48,6 +50,15 @@ function connect() {
     connecting = false;
     lastSentKey = "";
     socket.send(JSON.stringify({ token: "", role: "provider" }));
+  };
+  socket.onmessage = (event) => {
+    let command = null;
+    try {
+      command = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+    if (command && command.command) handleCommand(command);
   };
   socket.onclose = () => {
     connecting = false;
@@ -102,12 +113,13 @@ async function forward(payload) {
   if (!socket || socket.readyState !== WebSocket.OPEN) return;
 
   const art = bestArtwork(payload.artwork);
-  const key = `${payload.title}|${payload.artist}|${payload.playbackState}|${art ? art.src : ""}`;
+  const key = `${payload.title}|${payload.artist}|${payload.playbackState}|${art ? art.src : ""}|${payload.likeStatus}`;
   if (key === lastSentKey) return;
   lastSentKey = key;
 
   const image = art ? await fetchArtwork(art.src) : null;
   const message = {
+    kind: "meta",
     title: payload.title,
     artist: payload.artist,
     album: payload.album,
@@ -116,14 +128,46 @@ async function forward(payload) {
     artworkMimeType: image ? image.mimeType : null,
     playing: payload.playbackState === "playing",
     pageURL: payload.href,
+    likeStatus: payload.likeStatus || null,
   };
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(message));
   }
 }
 
-chrome.runtime.onMessage.addListener((message) => {
-  if (message && message.type === "pageMeta") forward(message.payload);
+/** Relays a phone-issued action to the playing tab and returns its reply. */
+async function handleCommand({ command, index }) {
+  if (playingTabId == null) return;
+  let reply = null;
+  try {
+    reply = await chrome.tabs.sendMessage(playingTabId, {
+      type: "cueCommand",
+      command,
+      index,
+    });
+  } catch {
+    playingTabId = null;
+    return;
+  }
+  if (command === "requestQueue" && reply && reply.items) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ kind: "queue", items: reply.items }));
+    }
+  }
+  if (command === "toggleLike" || command === "toggleDislike") {
+    // The DOM updates a beat after the click; let the next poll report it.
+    lastSentKey = "";
+  }
+}
+
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (!message || message.type !== "pageMeta") return;
+  if (message.payload.playbackState === "playing" && sender.tab) {
+    playingTabId = sender.tab.id;
+  } else if (playingTabId == null && sender.tab) {
+    playingTabId = sender.tab.id;
+  }
+  forward(message.payload);
 });
 
 /** Content scripts are only injected on page load, so installing or reloading

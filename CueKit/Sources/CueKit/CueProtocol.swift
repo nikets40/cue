@@ -44,13 +44,18 @@ public struct NowPlayingState: Codable, Equatable, Sendable {
     /// Detected streaming service (e.g. "netflix", "ytmusic") for branded
     /// fallback art on the client; nil when unknown.
     public var service: String?
+    /// "like", "dislike", or "indifferent" when the source exposes it.
+    public var likeStatus: String?
+    /// True when a richer queue is reachable (browser extension or VLC), so
+    /// the client knows whether to offer playlist browsing.
+    public var hasQueue: Bool
 
     public init(
         title: String? = nil, artist: String? = nil, album: String? = nil,
         sourceApp: String? = nil, playing: Bool = false, duration: Double? = nil,
         elapsedTime: Double? = nil, timestamp: Date? = nil, playbackRate: Double = 1,
         artworkBase64: String? = nil, artworkMimeType: String? = nil, volume: Double = 0,
-        service: String? = nil
+        service: String? = nil, likeStatus: String? = nil, hasQueue: Bool = false
     ) {
         self.title = title
         self.artist = artist
@@ -65,6 +70,8 @@ public struct NowPlayingState: Codable, Equatable, Sendable {
         self.artworkMimeType = artworkMimeType
         self.volume = volume
         self.service = service
+        self.likeStatus = likeStatus
+        self.hasQueue = hasQueue
     }
 
     public func estimatedPosition(at date: Date = Date()) -> Double? {
@@ -89,10 +96,14 @@ public struct CueCommand: Codable, Equatable, Sendable {
         case seek
         /// Requires `value`: system volume 0–100.
         case setVolume
-        /// Ask for the current source's playlist (VLC only, for now).
+        /// Ask for the current source's playlist: the browser queue when the
+        /// extension is providing, otherwise VLC's.
         case requestPlaylist
         /// Requires `value`: the `PlaylistItem.id` to jump to.
         case playPlaylistItem
+        /// Toggle like/dislike on the current track (YouTube Music).
+        case toggleLike
+        case toggleDislike
     }
 
     public var action: Action
@@ -169,7 +180,46 @@ public struct ClientHello: Codable, Equatable, Sendable {
 /// Sent by the Chrome extension: the page's own Media Session metadata, which
 /// carries full-resolution artwork and an unambiguous source — both better
 /// than anything MediaRemote exposes.
+/// Provider → Booth messages share a `kind` discriminator; messages without
+/// one predate the queue support and are treated as metadata.
+public enum ProviderMessageKind: String, Codable, Sendable {
+    case meta
+    case queue
+}
+
+/// Booth → provider: an action for the extension to perform on the playing tab.
+public struct ProviderCommand: Codable, Equatable, Sendable {
+    public enum Action: String, Codable, Sendable {
+        case toggleLike
+        case toggleDislike
+        case requestQueue
+        /// Uses `index` into the queue the extension last reported.
+        case playQueueItem
+    }
+
+    public var command: Action
+    public var index: Int?
+
+    public init(command: Action, index: Int? = nil) {
+        self.command = command
+        self.index = index
+    }
+}
+
+/// Provider → Booth: the playing tab's queue.
+public struct PageQueue: Codable, Equatable, Sendable {
+    public var kind: ProviderMessageKind
+    public var items: [PlaylistItem]
+
+    public init(items: [PlaylistItem]) {
+        self.kind = .queue
+        self.items = items
+    }
+}
+
 public struct PageMetadata: Codable, Equatable, Sendable {
+    public var kind: ProviderMessageKind?
+    public var likeStatus: String?
     public var title: String?
     public var artist: String?
     public var album: String?
@@ -183,8 +233,11 @@ public struct PageMetadata: Codable, Equatable, Sendable {
     public init(
         title: String? = nil, artist: String? = nil, album: String? = nil,
         service: String? = nil, artworkBase64: String? = nil,
-        artworkMimeType: String? = nil, playing: Bool = false, pageURL: String? = nil
+        artworkMimeType: String? = nil, playing: Bool = false, pageURL: String? = nil,
+        likeStatus: String? = nil
     ) {
+        self.kind = .meta
+        self.likeStatus = likeStatus
         self.title = title
         self.artist = artist
         self.album = album

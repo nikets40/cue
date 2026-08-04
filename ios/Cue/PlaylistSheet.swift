@@ -46,7 +46,7 @@ struct PlaylistSheet: View {
                         Text("No playlist available")
                             .font(.headline)
                             .foregroundStyle(.white)
-                        Text("Cue Booth reaches VLC through its web interface. Enable it in VLC's preferences, then restart VLC.")
+                        Text("Play something in YouTube Music with the Cue Bridge extension installed, or open a playlist in VLC.")
                             .font(.footnote)
                             .foregroundStyle(.white.opacity(0.55))
                             .multilineTextAlignment(.center)
@@ -56,7 +56,7 @@ struct PlaylistSheet: View {
                 }
             }
             .background(BackdropView(artwork: nil, brand: nil))
-            .navigationTitle("Playlist")
+            .navigationTitle("Up Next")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

@@ -26,6 +26,7 @@ final class CueServer: ObservableObject {
 
     var onCommand: ((CueCommand) -> Void)?
     var onPageMetadata: ((PageMetadata) -> Void)?
+    var onPageQueue: (([PlaylistItem]) -> Void)?
     /// Pairing token clients must present in their `ClientHello`. Set before `start()`.
     var pairingToken = ""
     /// True while the Chrome extension is connected.
@@ -67,6 +68,20 @@ final class CueServer: ObservableObject {
         } catch {
             status = .failed(error.localizedDescription)
         }
+    }
+
+    /// Asks the Chrome extension to act on the playing tab. Returns false when
+    /// no extension is connected, so callers can fall back to VLC.
+    @discardableResult
+    func sendToProvider(_ command: ProviderCommand) -> Bool {
+        guard let data = try? CueProtocol.encoder().encode(command) else { return false }
+        var delivered = false
+        for id in providers {
+            guard let connection = connections[id] else { continue }
+            send(data, over: connection)
+            delivered = true
+        }
+        return delivered
     }
 
     /// Playlists are pull-only: they're large and rarely change, so they're
@@ -148,9 +163,10 @@ final class CueServer: ObservableObject {
             return
         }
         if providers.contains(id) {
-            if let metadata = try? CueProtocol.decoder().decode(PageMetadata.self, from: data) {
-                log("page metadata: \(metadata.title ?? "?") [\(metadata.service ?? "no service")] "
-                    + "art=\(metadata.artworkBase64?.count ?? 0)")
+            if let queue = try? CueProtocol.decoder().decode(PageQueue.self, from: data),
+               queue.kind == .queue {
+                onPageQueue?(queue.items)
+            } else if let metadata = try? CueProtocol.decoder().decode(PageMetadata.self, from: data) {
                 onPageMetadata?(metadata)
             } else {
                 log("provider sent undecodable: \(String(decoding: data.prefix(120), as: UTF8.self))")
