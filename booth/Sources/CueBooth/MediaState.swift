@@ -237,7 +237,6 @@ final class MediaState: ObservableObject {
         } else {
             payload = eventPayload
         }
-        log("stream event: title=\(payload["title"] as? String ?? "-") keys=\(payload.count)")
         rebuildNowPlaying()
         rawEvent = Self.prettyEvent(payload)
     }

@@ -15,8 +15,11 @@ func printMessage(_ text: String) {
           var obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     else { print("RECV (raw): \(text.prefix(300))"); return }
     if var state = obj["state"] as? [String: Any] {
+        // Report the real length under a separate key — replacing the value
+        // with a placeholder string makes len() lie about the artwork size.
         if let artwork = state["artworkBase64"] as? String {
-            state["artworkBase64"] = "<\(artwork.count) chars>"
+            state["artworkBase64"] = nil
+            state["artworkBase64Length"] = artwork.count
         }
         obj["state"] = state
     }
