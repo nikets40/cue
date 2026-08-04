@@ -3,8 +3,15 @@
 // read an empty session — hence "world": "MAIN" in the manifest. This script
 // can't touch chrome.* APIs, so it posts to bridge.js instead.
 (() => {
+  // The manifest injects this on page load and background.js re-injects into
+  // already-open tabs when the extension starts; only one loop should run.
+  if (window.__cueReaderInstalled) return;
+  window.__cueReaderInstalled = true;
+
   const POLL_MS = 1000;
+  const HEARTBEAT_MS = 10000;
   let lastPayload = "";
+  let lastPostAt = 0;
 
   function read() {
     const session = navigator.mediaSession;
@@ -28,8 +35,12 @@
     const payload = read();
     if (!payload) return;
     const key = JSON.stringify(payload);
-    if (key === lastPayload) return;
+    const stale = Date.now() - lastPostAt > HEARTBEAT_MS;
+    // Re-post on a heartbeat even when nothing changed, so Booth recovers its
+    // state after a restart instead of waiting for the next track.
+    if (key === lastPayload && !stale) return;
     lastPayload = key;
+    lastPostAt = Date.now();
     window.postMessage({ source: "cue-page-reader", payload }, "*");
   }, POLL_MS);
 })();

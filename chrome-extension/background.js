@@ -126,9 +126,41 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message && message.type === "pageMeta") forward(message.payload);
 });
 
+/** Content scripts are only injected on page load, so installing or reloading
+ *  the extension would otherwise leave every open tab silent until reloaded. */
+async function injectExistingTabs() {
+  let tabs = [];
+  try {
+    tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
+  } catch {
+    return;
+  }
+  for (const tab of tabs) {
+    if (!tab.id) continue;
+    for (const [file, world] of [["page-reader.js", "MAIN"], ["bridge.js", "ISOLATED"]]) {
+      chrome.scripting
+        .executeScript({
+          target: { tabId: tab.id, allFrames: true },
+          files: [file],
+          world,
+        })
+        .catch(() => {
+          // Restricted page (chrome://, web store); nothing to do.
+        });
+    }
+  }
+}
+
 // Service workers get suspended; an alarm brings this one back to re-dial.
 chrome.alarms.create("cue-keepalive", { periodInMinutes: 1 });
 chrome.alarms.onAlarm.addListener(connect);
-chrome.runtime.onStartup.addListener(connect);
-chrome.runtime.onInstalled.addListener(connect);
+chrome.runtime.onStartup.addListener(() => {
+  connect();
+  injectExistingTabs();
+});
+chrome.runtime.onInstalled.addListener(() => {
+  connect();
+  injectExistingTabs();
+});
 connect();
+injectExistingTabs();

@@ -30,6 +30,10 @@ struct NowPlaying: Equatable {
 
 @MainActor
 final class MediaState: ObservableObject {
+    /// Shared so startup doesn't depend on a window appearing — as a menu bar
+    /// app, Booth may never show one.
+    static let shared = MediaState()
+
     @Published private(set) var nowPlaying = NowPlaying()
     @Published private(set) var rawEvent = "(no events yet)"
     @Published private(set) var streamAlive = false
@@ -120,10 +124,13 @@ final class MediaState: ObservableObject {
             self.currentService = service
         }
 
+        // Throttle, not debounce: debounce only emits after a lull, and with
+        // both the media stream and the Chrome extension pushing updates there
+        // may never be one — which silently starved every broadcast.
         Publishers.CombineLatest3(
             $nowPlaying.removeDuplicates(), $volume.removeDuplicates(),
             $currentService.removeDuplicates())
-            .debounce(for: .milliseconds(80), scheduler: DispatchQueue.main)
+            .throttle(for: .milliseconds(120), scheduler: DispatchQueue.main, latest: true)
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.server.broadcast(self.snapshot())
@@ -188,6 +195,7 @@ final class MediaState: ObservableObject {
             try process.run()
             streamProcess = process
             streamAlive = true
+            log("stream started: \(Self.mediaControlPath)")
         } catch {
             rawEvent = "Failed to launch \(Self.mediaControlPath): \(error.localizedDescription)"
             streamAlive = false
@@ -216,6 +224,7 @@ final class MediaState: ObservableObject {
         } else {
             payload = eventPayload
         }
+        log("stream event: title=\(payload["title"] as? String ?? "-") keys=\(payload.count)")
         rebuildNowPlaying()
         rawEvent = Self.prettyEvent(payload)
     }

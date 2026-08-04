@@ -3,7 +3,7 @@
   "name": "Cue Bridge",
   "version": "1.0.0",
   "description": "Sends the playing tab's media details to Cue Booth so your phone shows full-resolution artwork and the right source.",
-  "permissions": ["storage", "alarms"],
+  "permissions": ["storage", "alarms", "scripting", "tabs"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"

@@ -4,6 +4,12 @@ import Network
 
 /// WebSocket server advertised over Bonjour. Pushes full `NowPlayingState`
 /// snapshots to every client and forwards received `CueCommand`s.
+/// Logs to stderr; visible in Console.app for the packaged app, or directly
+/// when running the binary from a terminal.
+func log(_ message: String) {
+    FileHandle.standardError.write(Data("[cue] \(message)\n".utf8))
+}
+
 @MainActor
 final class CueServer: ObservableObject {
     enum Status: Equatable {
@@ -114,11 +120,13 @@ final class CueServer: ObservableObject {
                 if hello.role == .provider {
                     providers.insert(id)
                     providerConnected = true
+                    log("provider connected (extension)")
                 } else {
                     clientCount = authenticated.subtracting(providers).count
                     if let snapshot = lastSnapshotData { send(snapshot, over: connection) }
                 }
             } else if let reply = try? CueProtocol.encoder().encode(ServerMessage(type: .authFailed)) {
+                log("rejected hello: \(String(decoding: data.prefix(120), as: UTF8.self))")
                 send(reply, over: connection)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, weak connection] in
                     guard let connection else { return }
@@ -129,7 +137,11 @@ final class CueServer: ObservableObject {
         }
         if providers.contains(id) {
             if let metadata = try? CueProtocol.decoder().decode(PageMetadata.self, from: data) {
+                log("page metadata: \(metadata.title ?? "?") [\(metadata.service ?? "no service")] "
+                    + "art=\(metadata.artworkBase64?.count ?? 0)")
                 onPageMetadata?(metadata)
+            } else {
+                log("provider sent undecodable: \(String(decoding: data.prefix(120), as: UTF8.self))")
             }
             return
         }
