@@ -62,6 +62,7 @@ struct RemoteView: View {
             progressSection
             transportSection
             volumeSection
+                .padding(.top, 18)
             Spacer(minLength: 0)
         }
         .padding(24)
