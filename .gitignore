@@ -1,5 +1,8 @@
 .DS_Store
 .build/
+.build-sim/
+ios/Cue.xcodeproj/
+ios/Cue/Info.plist
 *.xcodeproj/xcuserdata/
 xcuserdata/
 DerivedData/

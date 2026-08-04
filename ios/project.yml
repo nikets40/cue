@@ -1,0 +1,28 @@
+name: Cue
+options:
+  bundleIdPrefix: com.niket
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  CueKit:
+    path: ../CueKit
+targets:
+  Cue:
+    type: application
+    platform: iOS
+    sources: [Cue]
+    dependencies:
+      - package: CueKit
+    info:
+      path: Cue/Info.plist
+      properties:
+        UILaunchScreen: {}
+        CFBundleDisplayName: Cue
+        NSLocalNetworkUsageDescription: Cue connects to Cue Booth on your Mac to control media playback.
+        NSBonjourServices: [_cue._tcp]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.niket.cue
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
