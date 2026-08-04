@@ -128,7 +128,7 @@ final class MediaState: ObservableObject {
             guard !key.isEmpty else { return }
             if self.pageMetadata.count > 20 { self.pageMetadata.removeAll() }
             self.pageMetadata[key] = metadata
-            if metadata.playing { self.playingPageMetadata = metadata }
+            if metadata.playing == true { self.playingPageMetadata = metadata }
             self.rebuildNowPlaying()
         }
         server.start()

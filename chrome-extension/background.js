@@ -89,7 +89,8 @@ function bestArtwork(artwork) {
 async function fetchArtwork(src) {
   if (artworkCache.has(src)) return artworkCache.get(src);
   try {
-    const response = await fetch(src);
+    // Without a deadline a stalled image request would hang the caller.
+    const response = await fetch(src, { signal: AbortSignal.timeout(8000) });
     if (!response.ok) return null;
     const buffer = await response.arrayBuffer();
     if (buffer.byteLength > MAX_ARTWORK_BYTES) return null;
@@ -108,17 +109,8 @@ async function fetchArtwork(src) {
   }
 }
 
-async function forward(payload) {
-  connect();
-  if (!socket || socket.readyState !== WebSocket.OPEN) return;
-
-  const art = bestArtwork(payload.artwork);
-  const key = `${payload.title}|${payload.artist}|${payload.playbackState}|${art ? art.src : ""}|${payload.likeStatus}|${payload.debug || ""}`;
-  if (key === lastSentKey) return;
-  lastSentKey = key;
-
-  const image = art ? await fetchArtwork(art.src) : null;
-  const message = {
+function buildMessage(payload, image) {
+  return {
     kind: "meta",
     title: payload.title,
     artist: payload.artist,
@@ -132,9 +124,40 @@ async function forward(payload) {
     hasQueue: !!payload.hasQueue,
     debug: payload.debug || null,
   };
+}
+
+function sendMessage(message) {
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(message));
+    return true;
   }
+  return false;
+}
+
+function forward(payload) {
+  connect();
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+  const art = bestArtwork(payload.artwork);
+  const key = `${payload.title}|${payload.artist}|${payload.playbackState}|${art ? art.src : ""}|${payload.likeStatus}|${payload.debug || ""}`;
+  if (key === lastSentKey) return;
+  lastSentKey = key;
+
+  // Metadata goes out immediately; artwork is never allowed to gate it. A
+  // slow or stalled image download would otherwise strand the whole payload,
+  // and the dedupe key above would suppress every retry after it.
+  const cached = art ? artworkCache.get(art.src) : null;
+  sendMessage(buildMessage(payload, cached || null));
+  if (!art || cached) return;
+
+  fetchArtwork(art.src)
+    .then((image) => {
+      if (!image) return;
+      // Only worth a follow-up if this is still the current payload.
+      if (lastSentKey !== key) return;
+      sendMessage(buildMessage(payload, image));
+    })
+    .catch(() => {});
 }
 
 /** Relays a phone-issued action to the playing tab and returns its reply. */
@@ -162,8 +185,18 @@ async function handleCommand({ command, index }) {
   }
 }
 
+let reportedFirstPageMeta = false;
+
 chrome.runtime.onMessage.addListener((message, sender) => {
   if (!message || message.type !== "pageMeta") return;
+  if (!reportedFirstPageMeta) {
+    reportedFirstPageMeta = true;
+    let host = "?";
+    try {
+      host = new URL(message.payload.href).hostname;
+    } catch {}
+    report(`first pageMeta from ${host} title="${message.payload.title}" state=${message.payload.playbackState}`);
+  }
   if (message.payload.playbackState === "playing" && sender.tab) {
     playingTabId = sender.tab.id;
   } else if (playingTabId == null && sender.tab) {
@@ -178,22 +211,38 @@ async function injectExistingTabs() {
   let tabs = [];
   try {
     tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
-  } catch {
+  } catch (error) {
+    report(`tabs.query failed: ${error && error.message}`);
     return;
   }
+  let ok = 0;
+  let failed = 0;
+  let lastError = "";
   for (const tab of tabs) {
     if (!tab.id) continue;
     for (const [file, world] of [["page-reader.js", "MAIN"], ["bridge.js", "ISOLATED"]]) {
-      chrome.scripting
-        .executeScript({
+      try {
+        await chrome.scripting.executeScript({
           target: { tabId: tab.id, allFrames: true },
           files: [file],
           world,
-        })
-        .catch(() => {
-          // Restricted page (chrome://, web store); nothing to do.
         });
+        ok += 1;
+      } catch (error) {
+        failed += 1;
+        lastError = (error && error.message) || String(error);
+      }
     }
+  }
+  report(`injected ${ok} ok / ${failed} failed across ${tabs.length} tabs` +
+    (lastError ? ` — last error: ${lastError}` : ""));
+}
+
+/** Extension-side diagnostics are invisible from outside Chrome, so they're
+ *  sent to Booth, which logs them. */
+function report(message) {
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ kind: "meta", title: "", debug: `extension: ${message}` }));
   }
 }
 
@@ -209,4 +258,5 @@ chrome.runtime.onInstalled.addListener(() => {
   injectExistingTabs();
 });
 connect();
-injectExistingTabs();
+// Give the socket a moment so the injection report has somewhere to go.
+setTimeout(injectExistingTabs, 1200);

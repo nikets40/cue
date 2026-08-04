@@ -237,7 +237,9 @@ public struct PageMetadata: Codable, Equatable, Sendable {
     public var service: String?
     public var artworkBase64: String?
     public var artworkMimeType: String?
-    public var playing: Bool
+    /// Optional so a message that omits it still decodes — a single missing
+    /// field shouldn't make the whole payload unreadable.
+    public var playing: Bool?
     public var pageURL: String?
     /// Whether the page exposes a browsable queue.
     public var hasQueue: Bool?

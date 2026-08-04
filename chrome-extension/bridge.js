@@ -3,6 +3,11 @@
 // for. DOM work lives here rather than in the MAIN world because only the
 // Media Session read needs the page's realm.
 
+// Wrapped in an IIFE because this file is injected more than once into the
+// same isolated world (manifest on page load, then again when the extension
+// reloads) and top-level declarations would collide on the second pass.
+(() => {
+
 // Re-injection replaces the previous instance (see page-reader.js) so that
 // reloading the extension updates open tabs instead of stacking listeners.
 if (globalThis.__cueBridge) {
@@ -111,3 +116,5 @@ function onRuntimeMessage(message, _sender, sendResponse) {
 chrome.runtime.onMessage.addListener(onRuntimeMessage);
 
 globalThis.__cueBridge = { onWindowMessage, onRuntimeMessage };
+
+})();
