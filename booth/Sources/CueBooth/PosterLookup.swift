@@ -29,6 +29,11 @@ final class PosterLookup {
     private var cache: [String: Poster] = [:]
     private var misses: Set<String> = []
     private var inflight: Set<String> = []
+    /// Network failures aren't cached as misses (the title may well exist), so
+    /// a cooldown keeps a flaky connection from being retried on every media
+    /// event until it recovers.
+    private var retryAfter: [String: Date] = [:]
+    private static let retryCooldown: TimeInterval = 60
 
     init(defaults: UserDefaults) {
         credential = defaults.string(forKey: "tmdbApiKey") ?? ""
@@ -42,16 +47,21 @@ final class PosterLookup {
         guard !key.isEmpty else { return nil }
         if let hit = cache[key] { return hit }
         guard !misses.contains(key), !inflight.contains(key) else { return nil }
+        if let next = retryAfter[key], next > Date() { return nil }
         inflight.insert(key)
         Task { [weak self] in
             guard let self else { return }
-            let result = await Self.fetch(title: title, key: key, credential: self.credential)
+            let outcome = await Self.fetch(title: title, key: key, credential: self.credential)
             self.inflight.remove(key)
-            if let result {
-                self.cache[key] = result
-                self.onPoster?(result)
-            } else {
+            switch outcome {
+            case .poster(let poster):
+                self.retryAfter[key] = nil
+                self.cache[key] = poster
+                self.onPoster?(poster)
+            case .notFound:
                 self.misses.insert(key)
+            case .unreachable:
+                self.retryAfter[key] = Date().addingTimeInterval(Self.retryCooldown)
             }
         }
         return nil
@@ -73,50 +83,93 @@ final class PosterLookup {
         return variants
     }
 
-    private static func fetch(title: String, key: String, credential: String) async -> Poster? {
+    /// Distinguishes "TMDB says there's nothing" from "the request never got
+    /// there" — the API is intermittently unreachable on some networks, and a
+    /// transient failure must not be remembered as a miss.
+    enum SearchOutcome {
+        case found(path: String, name: String?)
+        case noResult
+        case unreachable
+    }
+
+    enum FetchOutcome {
+        case poster(Poster)
+        case notFound
+        case unreachable
+    }
+
+    private static func fetch(title: String, key: String, credential: String) async -> FetchOutcome {
+        var sawNetworkFailure = false
         for variant in searchVariants(of: title) {
-            guard let hit = await search(variant, credential: credential) else { continue }
+            var hit: (path: String, name: String?)?
+            // Retry around flaky connectivity before giving up on this variant.
+            for attempt in 0..<3 {
+                switch await search(variant, credential: credential) {
+                case .found(let path, let name):
+                    hit = (path, name)
+                case .noResult:
+                    hit = nil
+                case .unreachable:
+                    sawNetworkFailure = true
+                    if attempt < 2 {
+                        try? await Task.sleep(for: .milliseconds(400 * (attempt + 1)))
+                        continue
+                    }
+                }
+                break
+            }
+            guard let hit else { continue }
             guard let url = URL(string: "https://image.tmdb.org/t/p/w780\(hit.path)"),
                   let (data, response) = try? await URLSession.shared.data(from: url),
                   let image = NSImage(data: data)
             else { continue }
             let mime = (response as? HTTPURLResponse)?
                 .value(forHTTPHeaderField: "Content-Type") ?? "image/jpeg"
-            return Poster(
+            return .poster(Poster(
                 key: key, base64: data.base64EncodedString(), mimeType: mime,
-                image: image, title: hit.name)
+                image: image, title: hit.name))
         }
-        return nil
+        if sawNetworkFailure {
+            log("TMDB unreachable for \"\(title)\" — retrying in \(Int(retryCooldown))s")
+            return .unreachable
+        }
+        return .notFound
     }
 
-    private static func search(
-        _ query: String, credential: String
-    ) async -> (path: String, name: String?)? {
+    private static func search(_ query: String, credential: String) async -> SearchOutcome {
         var components = URLComponents(string: "https://api.themoviedb.org/3/search/multi")!
         var items = [URLQueryItem(name: "query", value: query),
                      URLQueryItem(name: "include_adult", value: "false")]
         let usesBearer = credential.hasPrefix("ey")
         if !usesBearer { items.append(URLQueryItem(name: "api_key", value: credential)) }
         components.queryItems = items
-        guard let url = components.url else { return nil }
+        guard let url = components.url else { return .noResult }
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 6
         if usesBearer {
             request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
         }
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              (response as? HTTPURLResponse)?.statusCode == 200,
+        guard let (data, response) = try? await URLSession.shared.data(for: request) else {
+            return .unreachable
+        }
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        // 5xx and rate limiting are worth retrying; a bad key is not.
+        if status >= 500 || status == 429 { return .unreachable }
+        guard status == 200,
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let results = json["results"] as? [[String: Any]]
-        else { return nil }
+        else {
+            if status == 401 { log("TMDB rejected the key (401)") }
+            return .noResult
+        }
 
         for result in results {
             let type = result["media_type"] as? String
             guard type == "tv" || type == "movie" else { continue }
             guard let path = result["poster_path"] as? String, !path.isEmpty else { continue }
-            return (path, result["name"] as? String ?? result["title"] as? String)
+            return .found(path: path, name: result["name"] as? String ?? result["title"] as? String)
         }
-        return nil
+        return .noResult
     }
 }
