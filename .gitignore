@@ -10,3 +10,5 @@ dist/
 .build-dev/
 site/.next/
 site/node_modules/
+.build-check/
+.build-watch/

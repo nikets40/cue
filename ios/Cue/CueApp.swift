@@ -18,7 +18,25 @@ struct CueApp: App {
                         LiveActivityManager.shared.sync(
                             state: client.state, artwork: client.artwork,
                             artworkKey: client.artworkCacheKey, boothName: boothName)
+                        WatchRelay.shared.sync(
+                            state: client.state, artwork: client.artwork,
+                            artworkKey: client.artworkCacheKey,
+                            connected: boothName != nil, boothName: boothName)
                     }
+                    // The watch has no route to Booth of its own, so commands
+                    // arrive here and are forwarded on.
+                    WatchRelay.shared.onCommand = { [weak client] action, value in
+                        client?.send(action, value: value)
+                    }
+                    WatchRelay.shared.currentPayload = { [weak client] in
+                        guard let client else { return WatchPayload() }
+                        var boothName: String?
+                        if case .connected(let name) = client.phase { boothName = name }
+                        return WatchRelay.shared.payload(
+                            state: client.state, connected: boothName != nil,
+                            boothName: boothName)
+                    }
+                    WatchRelay.shared.activate()
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { client.reconnectIfNeeded() }
