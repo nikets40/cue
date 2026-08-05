@@ -321,10 +321,16 @@ function Features() {
 
 const SHOTS = [
   {
+    src: "/screenshots/discovery.png",
+    alt: "Discovery screen finding the Mac on the local network",
+    caption: "Finds your Mac",
+    note: "Bonjour discovery — no IP addresses, no QR codes, no config.",
+  },
+  {
     src: "/screenshots/player.png",
     alt: "Cue player screen showing artwork, scrubber, transport controls and a volume slider",
     caption: "The remote",
-    note: "Artwork takes its own shape — square for albums, 2:3 for posters, wide for video thumbnails.",
+    note: "Artwork takes its own shape — square for albums, 2:3 for posters, wide for video.",
   },
   {
     src: "/screenshots/sources.png",
@@ -336,7 +342,7 @@ const SHOTS = [
     src: "/screenshots/queue.png",
     alt: "Up Next queue showing tracks with artwork, artist and duration",
     caption: "Up next",
-    note: "The real queue from YouTube Music or a YouTube mix, with the current track marked.",
+    note: "The real queue from YouTube Music or a YouTube mix, current track marked.",
   },
 ];
 
@@ -351,20 +357,20 @@ function Screenshots() {
           Not mockups. The actual app.
         </h2>
       </Reveal>
-      <div className="mt-14 grid gap-8 sm:grid-cols-3">
+      <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
         {SHOTS.map((shot, i) => (
-          <Reveal key={shot.src} delay={i * 100}>
+          <Reveal key={shot.src} delay={(i % 4) * 100}>
             <figure>
-              <div className="overflow-hidden rounded-[26px] border border-white/[0.09] bg-surface/60 shadow-2xl shadow-black/40">
-                <Image
-                  src={shot.src}
-                  alt={shot.alt}
-                  width={414}
-                  height={900}
-                  className="h-auto w-full"
-                />
-              </div>
-              <figcaption className="mt-4">
+              {/* The bezel is baked into the image so GitHub and the site
+                  show the same thing — READMEs can't style anything. */}
+              <Image
+                src={shot.src}
+                alt={shot.alt}
+                width={496}
+                height={982}
+                className="h-auto w-full"
+              />
+              <figcaption className="mt-3">
                 <span className="text-[15px] font-bold">{shot.caption}</span>
                 <span className="mt-1 block text-[13.5px] leading-relaxed text-ink-3">
                   {shot.note}

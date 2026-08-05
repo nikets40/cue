@@ -19,9 +19,10 @@
 Cue is a pair of apps: **Cue Booth**, a macOS menu bar app that watches and drives whatever is playing, and **Cue**, an iPhone app that talks to it over your local network. No cloud, no account, no data leaves your machine.
 
 <p align="center">
-  <img src="docs/screenshots/player.png" width="270" alt="Cue player screen showing album art, scrubber and transport controls">
-  <img src="docs/screenshots/sources.png" width="270" alt="Source picker listing browser tabs, QuickTime and VLC">
-  <img src="docs/screenshots/queue.png" width="270" alt="Up Next queue with artwork and artists">
+  <img src="docs/screenshots/player.png" width="240" alt="Cue player screen showing album art, scrubber and transport controls">
+  <img src="docs/screenshots/sources.png" width="240" alt="Source picker listing browser tabs, QuickTime and VLC">
+  <img src="docs/screenshots/queue.png" width="240" alt="Up Next queue with artwork and artists">
+  <img src="docs/screenshots/discovery.png" width="240" alt="Discovery screen finding the Mac on the local network">
 </p>
 
 ---
@@ -251,4 +252,4 @@ swift tools/wstest.swift ws://127.0.0.1:41952 <pairing-code> '{"action":"toggleP
 
 ## License
 
-No license has been chosen yet — add one before publishing if you want others to be able to use this.
+[MIT](LICENSE) © Niket Singh
