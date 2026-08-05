@@ -76,8 +76,10 @@ struct RemoteView: View {
         VStack(spacing: 28) {
             header
             Spacer(minLength: 0)
+            // A square cover fills the width; a taller poster is bounded by
+            // height so it can't push the controls off screen.
             CoverView(artwork: client.artwork, brand: brand)
-                .frame(width: 260, height: 260)
+                .frame(maxWidth: 260, maxHeight: 300)
             trackInfo
             progressSection
             transportSection
@@ -319,16 +321,22 @@ struct BackdropView: View {
     }
 }
 
-/// The crisp square: artwork, or a branded logo card, or the stage tile.
+/// The crisp cover: artwork, or a branded logo card, or the stage tile.
+/// Takes the artwork's own shape rather than forcing a square — film and show
+/// posters are 2:3, and cropping them to a square cuts off the title.
 struct CoverView: View {
     let artwork: UIImage?
     let brand: ServiceBrand?
 
+    private var aspectRatio: CGFloat {
+        guard let artwork, artwork.size.width > 0, artwork.size.height > 0 else { return 1 }
+        return artwork.size.width / artwork.size.height
+    }
+
     var body: some View {
         Group {
             if let artwork {
-                Color.clear.overlay(
-                    Image(uiImage: artwork).resizable().scaledToFill())
+                Image(uiImage: artwork).resizable().scaledToFit()
             } else if let brand {
                 ZStack {
                     brand.card
@@ -348,7 +356,7 @@ struct CoverView: View {
                 }
             }
         }
-        .aspectRatio(1, contentMode: .fit)
+        .aspectRatio(aspectRatio, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: .black.opacity(0.45), radius: 20, y: 10)
     }

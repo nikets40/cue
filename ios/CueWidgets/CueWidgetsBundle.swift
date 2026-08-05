@@ -177,7 +177,12 @@ private struct ArtworkThumb: View {
     var body: some View {
         Group {
             if let data, let image = UIImage(data: data) {
-                Image(uiImage: image).resizable().scaledToFill()
+                // Fit, not fill: posters are 2:3 and filling a square thumb
+                // would crop the title off.
+                ZStack {
+                    Color.black.opacity(0.35)
+                    Image(uiImage: image).resizable().scaledToFit()
+                }
             } else {
                 ZStack {
                     LinearGradient(
