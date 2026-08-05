@@ -39,11 +39,18 @@ final class WatchRelay: NSObject, ObservableObject {
     /// watch rather than pushed.
     func sync(state: NowPlayingState?, artwork: UIImage?, artworkKey: String?,
               connected: Bool, boothName: String?) {
-        guard let session, session.isPaired, session.isWatchAppInstalled else { return }
+        // Deliberately not gated on isWatchAppInstalled: it reports false in
+        // some legitimate states, and because this is the only path that
+        // populates the artwork cache, a false negative here silently stops
+        // every update rather than just skipping one.
+        guard let session, session.activationState == .activated, session.isPaired
+        else { return }
 
         // Re-encoding artwork on every update would cost far more than the
         // rest of this put together, so it's cached against Booth's own key.
-        if artworkKey != lastArtworkKey {
+        // The second clause matters when the key is nil but artwork exists:
+        // comparing nil to nil looks unchanged and would never encode anything.
+        if artworkKey != lastArtworkKey || (lastArtworkJPEG == nil && artwork != nil) {
             lastArtworkKey = artworkKey
             lastArtworkJPEG = artwork.flatMap(Self.thumbnail)
         }

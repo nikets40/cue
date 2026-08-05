@@ -6,10 +6,16 @@ import SwiftUI
 /// than reaching for the phone.
 struct WatchPlayerView: View {
     @EnvironmentObject private var connector: WatchConnector
-    /// Drives the crown. Kept in sync with the reported volume except while
-    /// the user is turning it.
-    @State private var crownVolume: Double = 0.5
+    /// Drives the crown, on the protocol's 0–100 scale rather than a unit
+    /// fraction. Kept in sync with the reported volume except while the user
+    /// is turning it.
+    @State private var crownVolume: Double = 50
     @FocusState private var crownFocused: Bool
+    /// True only while the crown is genuinely being turned. Inferring intent
+    /// from value changes instead was wrong: adopting the Mac's own volume
+    /// also changes the value, and sending that back walked the volume away on
+    /// its own — it drove a Mac to silence during testing.
+    @State private var userIsTurning = false
 
     private var payload: WatchPayload { connector.payload }
 
@@ -28,16 +34,23 @@ struct WatchPlayerView: View {
         .focusable()
         .focused($crownFocused)
         .digitalCrownRotation(
-            $crownVolume, from: 0, through: 1, by: 0.02,
-            sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true
+            detent: $crownVolume, from: 0, through: 100, by: 2,
+            sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true,
+            onChange: { _ in userIsTurning = true },
+            onIdle: {
+                // The last value can land after the turn ends, so send it here
+                // rather than risk dropping where the user actually stopped.
+                if userIsTurning, payload.connected { connector.setVolume(crownVolume) }
+                userIsTurning = false
+            }
         )
         .onChange(of: crownVolume) { _, value in
-            guard payload.connected, payload.volume != nil else { return }
+            guard userIsTurning, payload.connected, payload.volume != nil else { return }
             connector.setVolume(value)
         }
         .onChange(of: payload.volume) { _, value in
             // Don't yank the crown out from under the user mid-turn.
-            guard connector.pendingVolume == nil, let value else { return }
+            guard !userIsTurning, connector.pendingVolume == nil, let value else { return }
             crownVolume = value
         }
         .onAppear {
@@ -46,14 +59,19 @@ struct WatchPlayerView: View {
         }
     }
 
+    /// Laid out with flexible gaps rather than fixed ones: watch screens run
+    /// from 40mm to 49mm, and the header's height changes with how many lines
+    /// the title takes, so fixed spacing leaves the transport row stranded.
     private var player: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 8) {
+        VStack(spacing: 0) {
+            HStack(spacing: 9) {
                 artwork
                 VStack(alignment: .leading, spacing: 1) {
                     Text(payload.title ?? "")
                         .font(.system(size: 15, weight: .semibold))
                         .lineLimit(2)
+                        // Rather than truncating a title that just misses.
+                        .minimumScaleFactor(0.85)
                     if let artist = payload.artist, !artist.isEmpty {
                         Text(artist)
                             .font(.system(size: 12))
@@ -64,20 +82,27 @@ struct WatchPlayerView: View {
                 Spacer(minLength: 0)
             }
 
+            Spacer(minLength: 7)
             progress
+            Spacer(minLength: 9)
 
-            HStack(spacing: 14) {
+            // Spread to the edges instead of clustering around the centre,
+            // which both looks intentional and widens the tap targets.
+            HStack(spacing: 0) {
                 transportButton("gobackward.15") { connector.send(.skipBack15) }
+                Spacer(minLength: 0)
                 transportButton(payload.playing ? "pause.fill" : "play.fill", large: true) {
                     connector.send(.togglePlayPause)
                 }
+                Spacer(minLength: 0)
                 transportButton("goforward.15") { connector.send(.skipForward15) }
             }
-            .padding(.top, 2)
+            .padding(.horizontal, 4)
 
+            Spacer(minLength: 5)
             volumeReadout
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 3)
     }
 
     @ViewBuilder private var artwork: some View {
@@ -85,12 +110,12 @@ struct WatchPlayerView: View {
             Image(uiImage: image)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 44, height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .frame(width: 42, height: 42)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         } else {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(.quaternary)
-                .frame(width: 44, height: 44)
+                .frame(width: 42, height: 42)
                 .overlay(Image(systemName: "music.note").font(.system(size: 16))
                     .foregroundStyle(.secondary))
         }
@@ -109,15 +134,16 @@ struct WatchPlayerView: View {
                 }
             }
             .frame(height: 3)
+            .padding(.horizontal, 1)
         }
     }
 
     @ViewBuilder private var volumeReadout: some View {
         if let volume = connector.pendingVolume ?? payload.volume {
             HStack(spacing: 4) {
-                Image(systemName: volume < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                Image(systemName: volume < 1 ? "speaker.slash.fill" : "speaker.wave.2.fill")
                     .font(.system(size: 10))
-                Text("\(Int(volume * 100))%")
+                Text("\(Int(volume.rounded()))%")
                     .font(.system(size: 11, weight: .medium))
                     .monospacedDigit()
             }
@@ -129,8 +155,9 @@ struct WatchPlayerView: View {
                                  action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: large ? 22 : 17, weight: .medium))
-                .frame(width: large ? 48 : 38, height: large ? 48 : 38)
+                .font(.system(size: large ? 21 : 18, weight: .medium))
+                .frame(width: large ? 46 : 40, height: large ? 46 : 40)
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .background(large ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.clear), in: Circle())

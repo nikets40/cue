@@ -39,7 +39,9 @@ targets:
   CueWatch:
     type: application
     platform: watchOS
-    sources: [CueWatch, Shared]
+    # Only the payload from Shared: the rest is Live Activity code, and
+    # ActivityKit doesn't exist on watchOS.
+    sources: [CueWatch, Shared/WatchPayload.swift]
     dependencies:
       - package: CueKit
     info:
