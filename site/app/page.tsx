@@ -1,6 +1,5 @@
 import Image from "next/image";
 import { CueBadge, CueMark } from "@/components/Logo";
-import { PhoneMock } from "@/components/PhoneMock";
 import { Reveal } from "@/components/Reveal";
 import {
   MenuBarArt,
@@ -131,7 +130,14 @@ function Hero() {
           </Reveal>
         </div>
         <Reveal delay={200} className="justify-self-center lg:justify-self-end">
-          <PhoneMock />
+          <Image
+            src="/screenshots/hero.png"
+            alt="Cue on iPhone showing Tame Impala's The Less I Know The Better, with album art, scrubber and transport controls"
+            width={496}
+            height={982}
+            priority
+            className="h-auto w-[300px] sm:w-[340px]"
+          />
         </Reveal>
       </div>
     </section>
