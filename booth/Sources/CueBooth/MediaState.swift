@@ -151,9 +151,9 @@ final class MediaState: ObservableObject {
             self.rebuildNowPlaying()
         }
         quickTime.onThumbnail = { [weak self] _, _ in
-            // Frame extraction is async; nudge a broadcast once it lands.
-            guard let self else { return }
-            self.server.broadcast(self.snapshot())
+            // Frame extraction is async; fold it in once it lands.
+            guard let self, self.usingQuickTime else { return }
+            self.applyQuickTimeToNowPlaying()
         }
         posterLookup.onPoster = { [weak self] poster in
             guard let self,
@@ -182,19 +182,51 @@ final class MediaState: ObservableObject {
     }
 
     /// True while QuickTime is the only thing playing, so commands and state
-    /// should come from it rather than MediaRemote.
-    private var usingQuickTime: Bool {
-        nowPlaying.isEmpty && quickTimeState != nil
+    /// come from it rather than MediaRemote.
+    private(set) var usingQuickTime = false
+
+    private var mediaRemoteHasTrack: Bool {
+        !((payload["title"] as? String) ?? "").isEmpty
     }
 
     private func pollQuickTime() async {
         // Only worth asking when nothing else claims playback; each call is an
         // osascript round trip.
-        guard nowPlaying.isEmpty || quickTimeState != nil else {
-            if quickTimeState != nil { quickTimeState = nil }
+        guard !mediaRemoteHasTrack else {
+            if usingQuickTime {
+                usingQuickTime = false
+                quickTimeState = nil
+                rebuildNowPlaying()
+            }
             return
         }
-        quickTimeState = await quickTime.fetchState()
+        let state = await quickTime.fetchState()
+        guard state != quickTimeState || (state != nil && !usingQuickTime) else { return }
+        quickTimeState = state
+        usingQuickTime = state != nil
+        applyQuickTimeToNowPlaying()
+    }
+
+    /// QuickTime feeds the same `nowPlaying` everything else reads, so the
+    /// dashboard, menu bar and phone all show one state rather than the
+    /// dashboard rendering MediaRemote while the phone got a separate
+    /// snapshot.
+    private func applyQuickTimeToNowPlaying() {
+        guard let state = quickTimeState else {
+            nowPlaying = NowPlaying()
+            return
+        }
+        var next = NowPlaying()
+        next.title = state.title
+        next.artist = "QuickTime Player"
+        next.bundleIdentifier = QuickTimeClient.bundleIdentifier
+        next.playing = state.playing
+        next.duration = state.duration
+        next.elapsedTime = state.position
+        next.timestamp = Date()
+        next.playbackRate = state.playing ? 1 : 0
+        next.artwork = state.path.flatMap { quickTime.thumbnail(for: $0)?.image }
+        nowPlaying = next
     }
 
     func snapshot() -> NowPlayingState {

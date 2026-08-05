@@ -1,3 +1,4 @@
+import CueKit
 import SwiftUI
 
 struct ServerStatusBadge: View {
@@ -141,7 +142,7 @@ struct DashboardView: View {
                     in: 0...max(duration, 1),
                     onEditingChanged: { editing in
                         if !editing, let target = seekPreview {
-                            media.seek(to: target)
+                            media.handle(.init(action: .seek, value: target))
                             // Keep showing the target until the stream reports the new position.
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { seekPreview = nil }
                         }
@@ -162,13 +163,15 @@ struct DashboardView: View {
     private var transportSection: some View {
         HStack(spacing: 24) {
             Spacer()
-            transportButton("gobackward.15") { media.skip(by: -15) }
-            transportButton("backward.fill") { media.send("previous-track") }
+            // Routed through the same command handler the phone uses, so the
+            // dashboard drives QuickTime and browser players identically.
+            transportButton("gobackward.15") { media.handle(.init(action: .skipBack15)) }
+            transportButton("backward.fill") { media.handle(.init(action: .previousTrack)) }
             transportButton(media.nowPlaying.playing ? "pause.circle.fill" : "play.circle.fill", size: 44) {
-                media.send("toggle-play-pause")
+                media.handle(.init(action: .togglePlayPause))
             }
-            transportButton("forward.fill") { media.send("next-track") }
-            transportButton("goforward.15") { media.skip(by: 15) }
+            transportButton("forward.fill") { media.handle(.init(action: .nextTrack)) }
+            transportButton("goforward.15") { media.handle(.init(action: .skipForward15)) }
             Spacer()
         }
     }

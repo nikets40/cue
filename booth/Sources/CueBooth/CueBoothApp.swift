@@ -45,9 +45,9 @@ struct MenuBarView: View {
         } else {
             Text("\(media.nowPlaying.title ?? "Untitled") — \(media.nowPlaying.artist ?? "")")
             Button(media.nowPlaying.playing ? "Pause" : "Play") {
-                media.send("toggle-play-pause")
+                media.handle(.init(action: .togglePlayPause))
             }
-            Button("Next track") { media.send("next-track") }
+            Button("Next track") { media.handle(.init(action: .nextTrack)) }
         }
         Divider()
         Button("Open Dashboard") {
