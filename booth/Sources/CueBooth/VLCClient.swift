@@ -40,9 +40,29 @@ final class VLCClient {
         _ = await get("/requests/status.json?command=pl_play")
     }
 
-    func toggleFullscreen() async {
+    /// Toggling fullscreen on an audio-only item is worse than a no-op: VLC has
+    /// no video output to apply it to, but it still flips the internal flag, so
+    /// the *next* video opens fullscreen out of nowhere. Checking for a video
+    /// stream first keeps that flag in step with what's actually on screen.
+    /// Returns false when there was nothing to fullscreen.
+    @discardableResult
+    func toggleFullscreen() async -> Bool {
+        guard await hasVideo() else { return false }
         bringToFront()  // fullscreen is pointless behind another window
         _ = await get("/requests/status.json?command=fullscreen")
+        return true
+    }
+
+    /// Whether the current item carries a video stream. VLC describes each
+    /// stream under `information.category` with a `Type` of "Video" or "Audio".
+    private func hasVideo() async -> Bool {
+        guard let json = await get("/requests/status.json"),
+              let information = json["information"] as? [String: Any],
+              let category = information["category"] as? [String: Any]
+        else { return false }
+        return category.values.contains { stream in
+            (stream as? [String: Any])?["Type"] as? String == "Video"
+        }
     }
 
     /// `pl_forcepause` rather than `pl_pause`, which toggles and would start

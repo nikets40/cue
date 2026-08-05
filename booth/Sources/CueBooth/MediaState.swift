@@ -338,7 +338,11 @@ final class MediaState: ObservableObject {
     /// fullscreen, and none of them can be driven the same way.
     private func toggleFullscreen() {
         if nowPlaying.bundleIdentifier == VLCClient.bundleIdentifier {
-            Task { [weak self] in await self?.vlc.toggleFullscreen() }
+            Task { [weak self] in
+                guard let self else { return }
+                let toggled = await self.vlc.toggleFullscreen()
+                if !toggled { log("fullscreen: VLC item has no video") }
+            }
             return
         }
         if server.providerConnected, nowPlaying.bundleIdentifier == "com.google.Chrome" {
