@@ -27,6 +27,7 @@ final class CueServer: ObservableObject {
     var onCommand: ((CueCommand) -> Void)?
     var onPageMetadata: ((PageMetadata) -> Void)?
     var onPageQueue: (([PlaylistItem]) -> Void)?
+    var onPageTabs: (([PageTabs.Tab]) -> Void)?
     /// Pairing token clients must present in their `ClientHello`. Set before `start()`.
     var pairingToken = ""
     /// True while the Chrome extension is connected.
@@ -86,6 +87,16 @@ final class CueServer: ObservableObject {
 
     /// Playlists are pull-only: they're large and rarely change, so they're
     /// sent in reply to `requestPlaylist` rather than inside every snapshot.
+    func sendSources(_ sources: [MediaSource]) {
+        guard let data = try? CueProtocol.encoder()
+            .encode(ServerMessage(type: .sources, sources: sources))
+        else { return }
+        for (id, connection) in connections
+        where authenticated.contains(id) && !providers.contains(id) {
+            send(data, over: connection)
+        }
+    }
+
     func sendPlaylist(_ playlist: [PlaylistItem]?) {
         guard let data = try? CueProtocol.encoder()
             .encode(ServerMessage(type: .playlist, playlist: playlist))
@@ -166,6 +177,9 @@ final class CueServer: ObservableObject {
             if let queue = try? CueProtocol.decoder().decode(PageQueue.self, from: data),
                queue.kind == .queue {
                 onPageQueue?(queue.items)
+            } else if let tabs = try? CueProtocol.decoder().decode(PageTabs.self, from: data),
+                      tabs.kind == .tabs {
+                onPageTabs?(tabs.tabs)
             } else if let metadata = try? CueProtocol.decoder().decode(PageMetadata.self, from: data) {
                 if let debug = metadata.debug {
                     log("page: title=\"\(metadata.title ?? "-")\" [\(metadata.service ?? "-")] \(debug)")

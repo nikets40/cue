@@ -35,6 +35,25 @@ final class VLCClient {
         _ = await get("/requests/status.json?command=pl_play&id=\(id)")
     }
 
+    func resume() async {
+        _ = await get("/requests/status.json?command=pl_play")
+    }
+
+    /// What VLC currently holds, for the source list. Nil when VLC isn't
+    /// running or its web interface is off.
+    func status() async -> (title: String, playing: Bool)? {
+        guard let json = await get("/requests/status.json") else { return nil }
+        let state = json["state"] as? String ?? "stopped"
+        let meta = (json["information"] as? [String: Any])
+            .flatMap { $0["category"] as? [String: Any] }
+            .flatMap { $0["meta"] as? [String: Any] }
+        let title = (meta?["title"] as? String)
+            ?? (meta?["filename"] as? String)
+            ?? "VLC"
+        guard state != "stopped" || meta != nil else { return nil }
+        return (title, state == "playing")
+    }
+
     // MARK: - Internals
 
     /// VLC returns the playlist as a tree of nodes; leaves carry the media.

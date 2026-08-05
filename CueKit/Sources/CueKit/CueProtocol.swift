@@ -104,14 +104,62 @@ public struct CueCommand: Codable, Equatable, Sendable {
         /// Toggle like/dislike on the current track (YouTube Music).
         case toggleLike
         case toggleDislike
+        /// List everything open that could play (browser tabs, QuickTime
+        /// documents, VLC), whether or not it's currently playing.
+        case requestSources
+        /// Requires `target`: a `MediaSource.id` to start playing.
+        case activateSource
     }
 
     public var action: Action
     public var value: Double?
+    /// Identifier operand, for commands that address a thing rather than a number.
+    public var target: String?
 
-    public init(action: Action, value: Double? = nil) {
+    public init(action: Action, value: Double? = nil, target: String? = nil) {
         self.action = action
         self.value = value
+        self.target = target
+    }
+}
+
+/// Something open that can be played. macOS exposes only the single current
+/// now-playing app, so this is assembled from the integrations Cue owns
+/// rather than read from the system.
+public struct MediaSource: Codable, Equatable, Sendable, Identifiable {
+    public enum Kind: String, Codable, Sendable {
+        case browserTab
+        case quickTime
+        case vlc
+    }
+
+    /// Stable across updates: "tab:<id>", "qt:<index>", "vlc".
+    public var id: String
+    public var kind: Kind
+    public var title: String
+    public var subtitle: String?
+    /// Service slug for the client's brand icon, when known.
+    public var service: String?
+    public var playing: Bool
+    /// Light thumbnail the client fetches itself; full artwork stays with the
+    /// active source only.
+    public var artworkURL: String?
+    /// Whether this is what the system is currently playing.
+    public var isActive: Bool
+
+    public init(
+        id: String, kind: Kind, title: String, subtitle: String? = nil,
+        service: String? = nil, playing: Bool = false,
+        artworkURL: String? = nil, isActive: Bool = false
+    ) {
+        self.id = id
+        self.kind = kind
+        self.title = title
+        self.subtitle = subtitle
+        self.service = service
+        self.playing = playing
+        self.artworkURL = artworkURL
+        self.isActive = isActive
     }
 }
 
@@ -148,21 +196,28 @@ public struct ServerMessage: Codable, Equatable, Sendable {
         /// Reply to `requestPlaylist`. `playlist` is nil when the source has
         /// no reachable playlist (e.g. VLC's HTTP interface is off).
         case playlist
+        /// Reply to `requestSources`.
+        case sources
     }
 
     public var type: Kind
     public var state: NowPlayingState?
     public var playlist: [PlaylistItem]?
+    public var sources: [MediaSource]?
 
     public init(state: NowPlayingState) {
         self.type = .state
         self.state = state
     }
 
-    public init(type: Kind, state: NowPlayingState? = nil, playlist: [PlaylistItem]? = nil) {
+    public init(
+        type: Kind, state: NowPlayingState? = nil,
+        playlist: [PlaylistItem]? = nil, sources: [MediaSource]? = nil
+    ) {
         self.type = type
         self.state = state
         self.playlist = playlist
+        self.sources = sources
     }
 }
 
@@ -195,6 +250,7 @@ public struct ClientHello: Codable, Equatable, Sendable {
 public enum ProviderMessageKind: String, Codable, Sendable {
     case meta
     case queue
+    case tabs
 }
 
 /// Booth → provider: an action for the extension to perform on the playing tab.
@@ -205,6 +261,10 @@ public struct ProviderCommand: Codable, Equatable, Sendable {
         case requestQueue
         /// Uses `index` into the queue the extension last reported.
         case playQueueItem
+        /// List every browser tab holding media, playing or not.
+        case listTabs
+        /// Uses `tabId`: focus that tab and start it playing.
+        case activateTab
         /// Video platforms ignore the system skip commands, so their own
         /// player controls have to be clicked instead.
         case nextTrack
@@ -217,10 +277,44 @@ public struct ProviderCommand: Codable, Equatable, Sendable {
 
     public var command: Action
     public var index: Int?
+    public var tabId: Int?
 
-    public init(command: Action, index: Int? = nil) {
+    public init(command: Action, index: Int? = nil, tabId: Int? = nil) {
         self.command = command
         self.index = index
+        self.tabId = tabId
+    }
+}
+
+/// Provider → Booth: every browser tab holding media.
+public struct PageTabs: Codable, Equatable, Sendable {
+    public var kind: ProviderMessageKind
+    public var tabs: [Tab]
+
+    public struct Tab: Codable, Equatable, Sendable {
+        public var tabId: Int
+        public var title: String
+        public var subtitle: String?
+        public var service: String?
+        public var playing: Bool
+        public var artworkURL: String?
+
+        public init(
+            tabId: Int, title: String, subtitle: String? = nil, service: String? = nil,
+            playing: Bool = false, artworkURL: String? = nil
+        ) {
+            self.tabId = tabId
+            self.title = title
+            self.subtitle = subtitle
+            self.service = service
+            self.playing = playing
+            self.artworkURL = artworkURL
+        }
+    }
+
+    public init(tabs: [Tab]) {
+        self.kind = .tabs
+        self.tabs = tabs
     }
 }
 

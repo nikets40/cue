@@ -12,6 +12,8 @@ const artworkCache = new Map(); // artwork src -> { base64, mimeType }
 let lastSentKey = "";
 /** Tab that last reported itself as playing — the one commands act on. */
 let playingTabId = null;
+/** Latest report from every tab holding media, so paused ones stay listable. */
+const tabStates = new Map();
 
 const SERVICES = [
   ["music.youtube.com", "ytmusic"],
@@ -161,7 +163,16 @@ function forward(payload) {
 }
 
 /** Relays a phone-issued action to the playing tab and returns its reply. */
-async function handleCommand({ command, index }) {
+async function handleCommand({ command, index, tabId }) {
+  // Source listing and switching are window-level, not tab-scoped.
+  if (command === "listTabs") {
+    sendMessage({ kind: "tabs", tabs: listTabs() });
+    return;
+  }
+  if (command === "activateTab") {
+    if (tabId != null) await activateTab(tabId);
+    return;
+  }
   if (playingTabId == null) return;
   let reply = null;
   try {
@@ -187,8 +198,71 @@ async function handleCommand({ command, index }) {
 
 let reportedFirstPageMeta = false;
 
+/** Smallest artwork entry — list rows only need a thumbnail. */
+function smallestArtwork(artwork) {
+  let best = null;
+  let bestArea = Infinity;
+  for (const art of artwork || []) {
+    if (!art.src) continue;
+    const match = /(\d+)\s*x\s*(\d+)/i.exec(art.sizes || "");
+    const area = match ? Number(match[1]) * Number(match[2]) : 1e9;
+    if (area < bestArea) {
+      bestArea = area;
+      best = art;
+    }
+  }
+  return best ? best.src : null;
+}
+
+/** Ad iframes and muted autoplay embeds would swamp the list, so a tab has to
+ *  look like real content: a title plus either a known service or artwork. */
+function isListable(entry) {
+  if (!entry || !entry.title || entry.title.length < 2) return false;
+  return !!(entry.service || entry.artworkURL);
+}
+
+function listTabs() {
+  return Array.from(tabStates.entries())
+    .filter(([, entry]) => isListable(entry))
+    .map(([tabId, entry]) => ({
+      tabId,
+      title: entry.title,
+      subtitle: entry.subtitle || null,
+      service: entry.service || null,
+      playing: !!entry.playing,
+      artworkURL: entry.artworkURL || null,
+    }));
+}
+
+async function activateTab(tabId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    await chrome.tabs.update(tabId, { active: true });
+    if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
+    // Starting playback is what makes macOS treat it as now-playing.
+    await chrome.tabs.sendMessage(tabId, { type: "cueCommand", command: "play" });
+    playingTabId = tabId;
+  } catch {
+    tabStates.delete(tabId);
+  }
+}
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  tabStates.delete(tabId);
+  if (playingTabId === tabId) playingTabId = null;
+});
+
 chrome.runtime.onMessage.addListener((message, sender) => {
   if (!message || message.type !== "pageMeta") return;
+  if (sender.tab && sender.tab.id != null) {
+    tabStates.set(sender.tab.id, {
+      title: message.payload.title,
+      subtitle: message.payload.artist,
+      service: serviceFor(message.payload.href),
+      playing: message.payload.playbackState === "playing",
+      artworkURL: smallestArtwork(message.payload.artwork),
+    });
+  }
   if (!reportedFirstPageMeta) {
     reportedFirstPageMeta = true;
     let host = "?";

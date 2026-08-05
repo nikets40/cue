@@ -66,6 +66,7 @@ final class MediaState: ObservableObject {
     /// "Netflix"), so for them the page is the authority on what's on screen
     /// and a title match can't be required.
     private var playingPageMetadata: PageMetadata?
+    private var browserTabs: [PageTabs.Tab] = []
 
     /// Favicon-scale artwork, i.e. not real cover art.
     private static func isTiny(_ image: NSImage?) -> Bool {
@@ -128,6 +129,13 @@ final class MediaState: ObservableObject {
         server.onCommand = { [weak self] command in self?.handle(command) }
         server.onPageQueue = { [weak self] items in
             self?.server.sendPlaylist(items)
+        }
+        server.onPageTabs = { [weak self] tabs in
+            guard let self else { return }
+            self.browserTabs = tabs
+            // The extension answers asynchronously, so re-send the assembled
+            // list once its tabs arrive.
+            Task { await self.sendSources() }
         }
         server.onPageMetadata = { [weak self] metadata in
             guard let self else { return }
@@ -315,6 +323,70 @@ final class MediaState: ObservableObject {
             server.sendToProvider(ProviderCommand(command: .toggleLike))
         case .toggleDislike:
             server.sendToProvider(ProviderCommand(command: .toggleDislike))
+        case .requestSources:
+            server.sendToProvider(ProviderCommand(command: .listTabs))
+            Task { [weak self] in await self?.sendSources() }
+        case .activateSource:
+            guard let target = command.target else { return }
+            activate(sourceID: target)
+        }
+    }
+
+    // MARK: - Source list
+
+    /// macOS exposes only the current now-playing app, so the list is
+    /// assembled from the integrations Cue owns.
+    private func sendSources() async {
+        var sources: [MediaSource] = []
+        let activeTitle = Self.normalize(nowPlaying.title ?? "")
+
+        for tab in browserTabs {
+            sources.append(MediaSource(
+                id: "tab:\(tab.tabId)",
+                kind: .browserTab,
+                title: tab.title,
+                subtitle: tab.subtitle,
+                service: tab.service,
+                playing: tab.playing,
+                artworkURL: tab.artworkURL,
+                isActive: tab.playing && nowPlaying.bundleIdentifier == "com.google.Chrome"))
+        }
+
+        for document in await quickTime.documents() {
+            sources.append(MediaSource(
+                id: "qt:\(document.index)",
+                kind: .quickTime,
+                title: document.name,
+                subtitle: "QuickTime Player",
+                playing: document.playing,
+                isActive: usingQuickTime && Self.normalize(document.name) == activeTitle))
+        }
+
+        if let vlcStatus = await vlc.status() {
+            sources.append(MediaSource(
+                id: "vlc",
+                kind: .vlc,
+                title: vlcStatus.title,
+                subtitle: "VLC",
+                service: "vlc",
+                playing: vlcStatus.playing,
+                isActive: nowPlaying.bundleIdentifier == VLCClient.bundleIdentifier))
+        }
+
+        server.sendSources(sources)
+    }
+
+    private func activate(sourceID: String) {
+        if sourceID == "vlc" {
+            Task { [weak self] in await self?.vlc.resume() }
+            return
+        }
+        if sourceID.hasPrefix("qt:"), let index = Int(sourceID.dropFirst(3)) {
+            quickTime.activate(index: index)
+            return
+        }
+        if sourceID.hasPrefix("tab:"), let tabID = Int(sourceID.dropFirst(4)) {
+            server.sendToProvider(ProviderCommand(command: .activateTab, tabId: tabID))
         }
     }
 

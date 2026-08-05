@@ -39,6 +39,8 @@ final class CueClient: ObservableObject {
     /// has none reachable.
     @Published private(set) var playlist: [PlaylistItem]?
     @Published private(set) var playlistLoading = false
+    @Published private(set) var sources: [MediaSource]?
+    @Published private(set) var sourcesLoading = false
 
     /// Fires after every applied state message — including while the app is
     /// backgrounded (kept alive by BackgroundKeepAlive), where SwiftUI
@@ -187,12 +189,20 @@ final class CueClient: ObservableObject {
         send(.requestPlaylist)
     }
 
+    func requestSources() {
+        sourcesLoading = true
+        send(.requestSources)
+    }
+
     private func handle(_ data: Data) {
         guard let message = try? CueProtocol.decoder().decode(ServerMessage.self, from: data) else { return }
         switch message.type {
         case .playlist:
             playlistLoading = false
             playlist = message.playlist ?? []
+        case .sources:
+            sourcesLoading = false
+            sources = message.sources ?? []
         case .authFailed:
             let name = currentBooth?.name ?? "Cue Booth"
             connection?.cancel()
@@ -221,9 +231,10 @@ final class CueClient: ObservableObject {
         sendFrame(data, over: connection)
     }
 
-    func send(_ action: CueCommand.Action, value: Double? = nil) {
+    func send(_ action: CueCommand.Action, value: Double? = nil, target: String? = nil) {
         guard let connection,
-              let data = try? CueProtocol.encoder().encode(CueCommand(action: action, value: value))
+              let data = try? CueProtocol.encoder()
+                .encode(CueCommand(action: action, value: value, target: target))
         else { return }
         sendFrame(data, over: connection)
     }

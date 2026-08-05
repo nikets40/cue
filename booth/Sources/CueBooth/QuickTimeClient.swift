@@ -40,6 +40,49 @@ final class QuickTimeClient {
         return await Self.run(Self.stateScript).flatMap(Self.parse)
     }
 
+    struct Document: Equatable {
+        var index: Int
+        var name: String
+        var playing: Bool
+    }
+
+    /// Every open document, so paused ones can still be listed and picked.
+    func documents() async -> [Document] {
+        guard let output = await Self.run(Self.documentsScript) else { return [] }
+        return output
+            .split(separator: "\n")
+            .compactMap { line in
+                let parts = line.trimmingCharacters(in: .whitespaces).components(separatedBy: "\t")
+                guard parts.count >= 3, let index = Int(parts[0]) else { return nil }
+                return Document(index: index, name: parts[1], playing: parts[2] == "true")
+            }
+    }
+
+    func activate(index: Int) {
+        busy = true
+        Task { [weak self] in
+            _ = await Self.run("""
+            tell application "QuickTime Player"
+              activate
+              if (count of documents) ≥ \(index) then play document \(index)
+            end tell
+            """)
+            self?.busy = false
+        }
+    }
+
+    private static let documentsScript = """
+    tell application "QuickTime Player"
+      set out to ""
+      set i to 1
+      repeat with d in documents
+        set out to out & i & "\\t" & (name of d) & "\\t" & (playing of d) & "\\n"
+        set i to i + 1
+      end repeat
+      return out
+    end tell
+    """
+
     func perform(_ action: Action) {
         busy = true
         Task { [weak self] in

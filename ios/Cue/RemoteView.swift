@@ -39,6 +39,7 @@ struct RemoteView: View {
     @State private var seekPreview: Double?
     @State private var volumePreview: Double?
     @State private var showPlaylist = false
+    @State private var showSources = false
 
     private var state: NowPlayingState { client.state ?? NowPlayingState() }
     private var brand: ServiceBrand? { state.service.flatMap(ServiceBrand.init(rawValue:)) }
@@ -71,6 +72,10 @@ struct RemoteView: View {
         }
         .sheet(isPresented: $showPlaylist) {
             PlaylistSheet()
+                .environmentObject(client)
+        }
+        .sheet(isPresented: $showSources) {
+            SourcesSheet()
                 .environmentObject(client)
         }
     }
@@ -129,6 +134,15 @@ struct RemoteView: View {
                 .foregroundStyle(.white.opacity(0.75))
             }
             Spacer()
+            Button {
+                client.requestSources()
+                showSources = true
+            } label: {
+                Image(systemName: "square.stack.3d.up")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.75))
+            }
+            .padding(.trailing, 14)
             if state.hasQueue {
                 Button {
                     client.requestPlaylist()

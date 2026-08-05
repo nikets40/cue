@@ -173,6 +173,17 @@ function onRuntimeMessage(message, _sender, sendResponse) {
     case "skipBack":
       sendResponse({ ok: clickPlayerSkip("back") });
       break;
+    case "play": {
+      // Used when switching sources: resume whatever this tab holds.
+      const video = document.querySelector("video, audio");
+      if (video && video.paused) {
+        video.play().catch(() => {});
+        sendResponse({ ok: true });
+      } else {
+        sendResponse({ ok: !!video });
+      }
+      break;
+    }
     default:
       sendResponse({ ok: false });
       break;
