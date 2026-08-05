@@ -1,23 +1,50 @@
 #!/bin/bash
-# Enables VLC's HTTP interface so Cue Booth can browse and control its
-# playlist, and shares the generated password with Booth.
+# Enables VLC's HTTP interface so Cue Booth can list and control it, and
+# shares the generated password with Booth.
 #
-# Bound to 127.0.0.1 — nothing on the network can reach it. Restart VLC
-# afterwards for the change to take effect.
+#   tools/enable-vlc-http.sh
 #
-# To undo:
-#   defaults delete org.videolan.vlc extraintf
-#   defaults delete org.videolan.vlc http-password
+# VLC 3.x reads ~/Library/Preferences/org.videolan.vlc/vlcrc — the macOS
+# `defaults` domain is NOT consulted for these settings, so they have to be
+# written into that file. VLC rewrites vlcrc when it quits, so it must be
+# closed first or the changes are lost.
+#
+# Bound to 127.0.0.1; nothing on the network can reach it. To undo, re-comment
+# the extraintf line in vlcrc.
 
 set -euo pipefail
 
-PASSWORD="$(defaults read com.niket.cuebooth vlcPassword 2>/dev/null || openssl rand -hex 8)"
+VLCRC="$HOME/Library/Preferences/org.videolan.vlc/vlcrc"
 
-defaults write org.videolan.vlc extraintf -string "http"
-defaults write org.videolan.vlc http-host -string "127.0.0.1"
-defaults write org.videolan.vlc http-port -int 8080
-defaults write org.videolan.vlc http-password -string "$PASSWORD"
+if pgrep -f "VLC.app/Contents/MacOS/VLC" >/dev/null 2>&1; then
+  echo "VLC is running — quit it first (⌘Q), or it will overwrite these settings on exit." >&2
+  exit 1
+fi
+
+if [ ! -f "$VLCRC" ]; then
+  echo "No vlcrc at $VLCRC — launch VLC once, quit it, then re-run." >&2
+  exit 1
+fi
+
+PASSWORD="$(defaults read com.niket.cuebooth vlcPassword 2>/dev/null || openssl rand -hex 8)"
+cp "$VLCRC" "$VLCRC.cue-backup"
+
+# Replace the setting whether it's currently commented out or already set.
+set_option() {
+  local key="$1" value="$2"
+  if grep -qE "^#?${key}=" "$VLCRC"; then
+    /usr/bin/sed -i '' -E "s|^#?${key}=.*|${key}=${value}|" "$VLCRC"
+  else
+    printf '%s=%s\n' "$key" "$value" >> "$VLCRC"
+  fi
+}
+
+set_option extraintf http
+set_option http-host 127.0.0.1
+set_option http-port 8080
+set_option http-password "$PASSWORD"
+
 defaults write com.niket.cuebooth vlcPassword -string "$PASSWORD"
 
-echo "VLC web interface enabled on 127.0.0.1:8080 and shared with Cue Booth."
-echo "Restart VLC for it to take effect."
+echo "VLC web interface enabled on 127.0.0.1:8080 (backup: $VLCRC.cue-backup)."
+echo "Start VLC and it will be reachable."

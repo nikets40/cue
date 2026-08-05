@@ -240,9 +240,11 @@ async function activateTab(tabId) {
     await chrome.tabs.update(tabId, { active: true });
     if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
     // Starting playback is what makes macOS treat it as now-playing.
-    await chrome.tabs.sendMessage(tabId, { type: "cueCommand", command: "play" });
+    const reply = await chrome.tabs.sendMessage(tabId, { type: "cueCommand", command: "play" });
+    report(`activate tab ${tabId}: ${reply ? reply.how : "no reply"}`);
     playingTabId = tabId;
-  } catch {
+  } catch (error) {
+    report(`activate tab ${tabId} failed: ${(error && error.message) || error}`);
     tabStates.delete(tabId);
   }
 }

@@ -132,6 +132,33 @@ function readQueue(timeoutMs = 1500) {
   });
 }
 
+/// Used when switching sources. A programmatic media.play() is often refused
+/// by the autoplay policy, whereas clicking the player's own button counts as
+/// a real activation, so the site's control is tried first.
+function resumePlayback() {
+  const media = document.querySelector("video, audio");
+  if (media && !media.paused) return { ok: true, how: "already-playing" };
+
+  const selectors = [
+    ".ytp-play-button",                        // youtube.com
+    "#play-pause-button",                      // YouTube Music
+    '[data-uia="control-play-pause-play"]',    // Netflix
+    'button[aria-label="Play"]',
+    'button[title="Play"]',
+  ];
+  for (const selector of selectors) {
+    const el = document.querySelector(selector);
+    if (!el) continue;
+    el.click();
+    return { ok: true, how: `clicked ${selector}` };
+  }
+  if (media) {
+    media.play().catch(() => {});
+    return { ok: true, how: "media.play()" };
+  }
+  return { ok: false, how: "no player found" };
+}
+
 function playQueueIndex(index) {
   const items = queueItems();
   const item = items[index];
@@ -173,17 +200,9 @@ function onRuntimeMessage(message, _sender, sendResponse) {
     case "skipBack":
       sendResponse({ ok: clickPlayerSkip("back") });
       break;
-    case "play": {
-      // Used when switching sources: resume whatever this tab holds.
-      const video = document.querySelector("video, audio");
-      if (video && video.paused) {
-        video.play().catch(() => {});
-        sendResponse({ ok: true });
-      } else {
-        sendResponse({ ok: !!video });
-      }
+    case "play":
+      sendResponse(resumePlayback());
       break;
-    }
     default:
       sendResponse({ ok: false });
       break;
