@@ -203,6 +203,10 @@ function onRuntimeMessage(message, _sender, sendResponse) {
     case "play":
       sendResponse(resumePlayback());
       break;
+    case "forceReport":
+      window.postMessage({ source: "cue-force-report" }, "*");
+      sendResponse({ ok: true });
+      break;
     default:
       sendResponse({ ok: false });
       break;

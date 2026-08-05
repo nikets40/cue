@@ -267,7 +267,16 @@
 
   function onQueueRequest(event) {
     if (event.source !== window) return;
-    if (!event.data || event.data.source !== "cue-queue-request") return;
+    if (!event.data) return;
+    if (event.data.source === "cue-force-report") {
+      // The service worker lost its tab list (MV3 suspends it); clearing the
+      // dedupe key makes the next poll re-report instead of waiting for the
+      // heartbeat.
+      lastPayload = "";
+      lastPostAt = 0;
+      return;
+    }
+    if (event.data.source !== "cue-queue-request") return;
     window.postMessage({ source: "cue-queue-response", items: readQueue() }, "*");
   }
   window.addEventListener("message", onQueueRequest);

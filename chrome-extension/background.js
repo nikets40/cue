@@ -166,6 +166,10 @@ function forward(payload) {
 async function handleCommand({ command, index, tabId }) {
   // Source listing and switching are window-level, not tab-scoped.
   if (command === "listTabs") {
+    // A suspended service worker loses tabStates, and content scripts only
+    // re-report on change or a 10s heartbeat — so ask them to speak up rather
+    // than answering with an empty list.
+    if (tabStates.size === 0) await refreshTabStates();
     sendMessage({ kind: "tabs", tabs: listTabs() });
     return;
   }
@@ -232,6 +236,27 @@ function listTabs() {
       playing: !!entry.playing,
       artworkURL: entry.artworkURL || null,
     }));
+}
+
+/** Prompts every tab to re-report, then waits briefly for the replies. */
+async function refreshTabStates() {
+  let tabs = [];
+  try {
+    tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
+  } catch {
+    return;
+  }
+  await Promise.all(
+    tabs.map((tab) =>
+      tab.id == null
+        ? Promise.resolve()
+        : chrome.tabs
+            .sendMessage(tab.id, { type: "cueCommand", command: "forceReport" })
+            .catch(() => {})
+    )
+  );
+  // page-reader polls at 1s; give it a beat to post.
+  await new Promise((resolve) => setTimeout(resolve, 1400));
 }
 
 async function activateTab(tabId) {

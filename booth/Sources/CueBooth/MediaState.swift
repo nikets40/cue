@@ -400,8 +400,11 @@ final class MediaState: ObservableObject {
         currentService.map(PosterLookup.videoServices.contains) ?? false
     }
 
-    /// Returns false for anything QuickTime has no concept of, letting the
-    /// caller fall through to the normal path.
+    /// Returns false for anything QuickTime shouldn't answer, letting the
+    /// caller fall through to the normal path. Every case is listed
+    /// explicitly: a `default` here silently swallowed the source-list
+    /// commands, so once QuickTime became active the picker stopped
+    /// responding and there was no way to switch away from it.
     private func handleWithQuickTime(_ command: CueCommand) -> Bool {
         switch command.action {
         case .play: quickTime.perform(.play)
@@ -414,8 +417,10 @@ final class MediaState: ObservableObject {
             quickTime.perform(.seek(value))
         case .setVolume:
             return false  // system volume, not the document's
-        default:
-            return true   // next/previous/like/playlist mean nothing here
+        case .requestSources, .activateSource, .requestPlaylist, .playPlaylistItem:
+            return false  // global, not owned by whatever is playing
+        case .nextTrack, .previousTrack, .toggleLike, .toggleDislike:
+            return true   // meaningless for a single local file
         }
         // Reflect the change immediately rather than waiting for the next poll.
         Task { [weak self] in
