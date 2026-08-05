@@ -43,7 +43,7 @@ The result: your phone shows the actual show poster while Netflix plays, the rea
 - **Correct artwork, everywhere** — full-resolution album art from the page, TMDB posters for film and TV, extracted video frames for local files, and platform logos as a fallback
 - **Proper titles** — real show names and episode numbers, not "Netflix"
 - **Source picker** — see every browser tab, QuickTime document and VLC item that's open, playing or paused, and switch with one tap
-- **Fullscreen from the couch** — one tap brings the player forward and fullscreens it (a real video fullscreen for QuickTime and VLC; a fullscreen browser window for Chrome, see below)
+- **Fullscreen from the couch** — one tap brings the player forward and puts the video into real fullscreen, in the browser as well as QuickTime and VLC
 - **Queue browsing** — YouTube Music and YouTube playlists with artwork, plus VLC's playlist
 - **Like / dislike** on YouTube Music
 - **Lock Screen & Dynamic Island** — a Live Activity with working controls and a progress bar that keeps ticking
@@ -150,7 +150,15 @@ Find `<your-device-id>` with `xcrun devicectl list devices`.
 
 That's it. The code is stored, so you only do this once.
 
-### 5. Optional: posters for film and TV
+### 5. Allow fullscreen control (Accessibility)
+
+Chrome only enters video fullscreen for input it trusts, and nothing an extension does qualifies — `requestFullscreen()` is refused, and so is a scripted click on the player's own button. Booth works around this by sending a genuine keystroke, which needs one permission:
+
+**System Settings → Privacy & Security → Accessibility → enable *Cue Booth***
+
+Booth asks the first time you use fullscreen. Until you grant it, fullscreen still works — it just fullscreens the browser window instead of the video. QuickTime and VLC don't need this.
+
+### 6. Optional: posters for film and TV
 
 Netflix, Prime and Hotstar don't publish artwork that macOS can see. With a free [TMDB](https://www.themoviedb.org/settings/api) API key, Cue looks up the real poster by show name:
 
@@ -160,7 +168,7 @@ tools/set-tmdb-key.sh <your-key>
 
 Restart Cue Booth afterwards. Either a v3 API key or a v4 read access token works.
 
-### 6. Optional: VLC
+### 7. Optional: VLC
 
 VLC is controlled through its web interface, which is off by default:
 
@@ -171,7 +179,7 @@ tools/enable-vlc-http.sh
 
 Then start VLC. It'll appear in the source picker.
 
-### 7. Optional: QuickTime
+### 8. Optional: QuickTime
 
 Nothing to configure — but the first time Cue Booth talks to QuickTime, macOS asks for permission to control it. Click **Allow**.
 
@@ -187,9 +195,9 @@ Nothing to configure — but the first time Cue Booth talks to QuickTime, macOS 
 └──────────────────────────┘         │   ├─ CoreAudio (system volume)       │
                                      │   ├─ AppleScript → QuickTime         │
 ┌─ Chrome: Cue Bridge ─────┐  ws     │   ├─ HTTP → VLC                      │
-│  Reads Media Session     │────────►│   └─ TMDB (posters)                  │
-│  Drives page controls    │         └──────────────────────────────────────┘
-└──────────────────────────┘
+│  Reads Media Session     │────────►│   ├─ CGEvent keystroke (fullscreen)  │
+│  Drives page controls    │         │   └─ TMDB (posters)                  │
+└──────────────────────────┘         └──────────────────────────────────────┘
 ```
 
 Booth pushes a full state snapshot on every change — no diffing, so the phone can't drift out of sync — and the phone sends small commands back. The extension connects as a *provider*: it supplies page metadata and performs DOM actions, and is accepted without the pairing token only because it connects over loopback.
@@ -200,6 +208,7 @@ A few things that turned out to be necessary rather than optional:
 - **Queue rows carry their data in a JS property**, not the DOM: the rendered `<img>` is a lazy-loading placeholder for every off-screen row. That property is invisible to an isolated content script, which is why queue reading runs in the page's own world.
 - **QuickTime never registers with Now Playing**, so it's driven entirely through AppleScript and only stands in when nothing else claims playback.
 - **Relative seeking drifts badly on streaming players** (a measured +15s once moved playback 84 seconds), so ±15 clicks the player's own jump buttons where they exist.
+- **No extension can fullscreen a video.** Chrome requires trusted input, which rules out both `requestFullscreen()` and clicking the site's own button from a script. Booth posts a real `CGEvent` keystroke instead — indistinguishable from your keyboard, because it enters through the OS input stack rather than the page. The extension's job is only to put the right tab in front with focus on its player.
 
 ## Repository layout
 
@@ -226,13 +235,17 @@ The TMDB key may be unset, or the lookup failed. Note that TMDB's API is blocked
 **Nothing appears for a few seconds after starting a video**
 Chrome takes roughly 15 seconds to register a new tab with macOS Now Playing. That gap is the system's, not Cue's.
 
+**Fullscreen only fullscreens the browser window**
+Booth doesn't have Accessibility permission, so it can't send the keystroke Chrome requires. Grant it in System Settings → Privacy & Security → Accessibility (step 5), then try again. Booth logs which path it took.
+
 **The iPhone app stopped launching**
 The free-account signature expired (7 days). Re-run the install command in step 3.
 
 ## Known limitations
 
 - Only Chrome is supported for browser playback — Safari would need its own extension.
-- **Fullscreen in the browser fullscreens the window, not the video.** Chrome grants true video fullscreen only to trusted user input: `requestFullscreen()` fails with a permissions error otherwise, and clicking the player's own fullscreen button from a script does nothing either. The one API that can synthesise trusted input (`chrome.debugger`) was tried and rejected — it needs an alarming permission, shows a "being debugged" banner, collides with any other debugger client, and left tabs rendering blank. QuickTime and VLC have real fullscreen commands and use them.
+- **Browser fullscreen needs Accessibility permission** (see step 5). Chrome accepts fullscreen only from trusted input, which no extension can produce, so Booth sends a real keystroke instead. Without the grant, Cue falls back to fullscreening the browser window and says so in its log.
+- **Fullscreen in VLC needs a video.** On an audio-only track there's no video output, so the command is skipped deliberately rather than silently flipping VLC's internal flag and surprising the next video you open.
 - The list of sources covers Chrome, QuickTime and VLC. macOS exposes no way to enumerate every app with paused media, so anything else is invisible unless integrated individually.
 - Quick Look previews (space-to-preview in Finder) can't be controlled: they never register with Now Playing and expose no scripting interface.
 - Live Activity content updates while the phone is locked depend on the app staying alive; buttons always work.

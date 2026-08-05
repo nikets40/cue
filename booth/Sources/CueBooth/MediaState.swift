@@ -346,7 +346,33 @@ final class MediaState: ObservableObject {
             return
         }
         if server.providerConnected, nowPlaying.bundleIdentifier == "com.google.Chrome" {
+            fullscreenChrome()
+        }
+    }
+
+    /// Real video fullscreen in Chrome takes two halves: the extension puts the
+    /// right tab in front with focus on its player, then Booth sends an actual
+    /// "f" keystroke. Neither half works alone — the extension can't produce
+    /// trusted input, and a keystroke sent to the wrong tab does nothing useful.
+    private func fullscreenChrome() {
+        guard KeystrokeSender.hasAccessibilityPermission else {
+            // Fall back to a fullscreen window so the button still does
+            // something, and point at the one-time fix.
+            log("fullscreen: no Accessibility permission — fullscreening the window instead")
+            log("fullscreen: grant it in System Settings › Privacy & Security › Accessibility")
+            KeystrokeSender.requestAccessibilityPermission()
             server.sendToProvider(ProviderCommand(command: .toggleFullscreen))
+            return
+        }
+        server.sendToProvider(ProviderCommand(command: .focusPlayer))
+        // The extension has to activate the tab, raise its window and move
+        // focus before the key is any use; that round trip isn't instant.
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(450))
+            guard let self else { return }
+            let sent = KeystrokeSender.send(key: KeystrokeSender.fKey, to: "com.google.Chrome")
+            log(sent ? "fullscreen: sent f to Chrome" : "fullscreen: could not send keystroke")
+            if !sent { self.server.sendToProvider(ProviderCommand(command: .toggleFullscreen)) }
         }
     }
 

@@ -110,6 +110,33 @@ function expandPlayer() {
   return { ok: false, how: "no expand control" };
 }
 
+/// Moves keyboard focus onto the player so the "f" keystroke Booth sends next
+/// reaches the video. Without this the key can land in a search field and just
+/// type a letter. Focusing the player container is preferred over the <video>
+/// element because that is where these sites bind their hotkeys.
+function focusPlayer() {
+  const containers = [
+    "#movie_player",                      // youtube.com
+    "ytmusic-player",                     // YouTube Music
+    ".watch-video",                       // Netflix
+    "video",
+  ];
+  for (const selector of containers) {
+    const el = document.querySelector(selector);
+    if (!el) continue;
+    // Sites don't always mark their player focusable, and focus() is a no-op
+    // without it.
+    if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "-1");
+    el.focus({ preventScroll: true });
+    if (document.activeElement === el) return { ok: true, how: selector };
+  }
+  // Better than leaving focus in a text field, where "f" would type a letter.
+  if (document.activeElement && document.activeElement !== document.body) {
+    document.activeElement.blur();
+  }
+  return { ok: false, how: "no player element" };
+}
+
 /// Netflix ignores the system next/previous commands, so episode changes have
 /// to be driven from its own player controls.
 function clickVideoSiteSkip(direction) {
@@ -233,6 +260,9 @@ function onRuntimeMessage(message, _sender, sendResponse) {
     }
     case "expandPlayer":
       sendResponse(expandPlayer());
+      break;
+    case "focusPlayer":
+      sendResponse(focusPlayer());
       break;
     case "forceReport":
       window.postMessage({ source: "cue-force-report" }, "*");

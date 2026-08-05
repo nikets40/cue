@@ -198,6 +198,10 @@ async function handleCommand({ command, index, tabId }) {
     await toggleFullscreen();
     return;
   }
+  if (command === "focusPlayer") {
+    await focusPlayer();
+    return;
+  }
   if (playingTabId == null) return;
   let reply = null;
   try {
@@ -326,6 +330,33 @@ async function toggleFullscreen() {
     report(`fullscreen: window ${entering ? "on" : "off"} for "${(tab.title || "").slice(0, 28)}"`);
   } catch (error) {
     report(`fullscreen failed: ${(error && error.message) || error}`);
+  }
+}
+
+/** Prepares the playing tab to receive the "f" keystroke Booth is about to
+ *  send: raise the window, make the tab active, and move keyboard focus onto
+ *  the player so the key hits the video instead of a search box.
+ *
+ *  This extension deliberately does not try to enter fullscreen itself — it
+ *  can't. Trusted input is the only thing Chrome accepts, and only the native
+ *  app can produce it. */
+async function focusPlayer() {
+  const targetId = currentPlayingTabId();
+  if (targetId == null) {
+    report("fullscreen: no playing tab");
+    return;
+  }
+  try {
+    const tab = await chrome.tabs.get(targetId);
+    await chrome.tabs.update(targetId, { active: true });
+    await chrome.windows.update(tab.windowId, { focused: true });
+    const reply = await chrome.tabs.sendMessage(targetId, {
+      type: "cueCommand",
+      command: "focusPlayer",
+    });
+    report(`fullscreen: focused ${reply && reply.how ? reply.how : "tab"}`);
+  } catch (error) {
+    report(`fullscreen: focus failed: ${(error && error.message) || error}`);
   }
 }
 
