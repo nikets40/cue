@@ -55,15 +55,69 @@
     }
 
     // Hotstar and Prime Video don't expose a stable player-title hook, but
-    // both put the programme name in the document title.
+    // both put the programme name in the document title. Hotstar's reads
+    // "Watch <Show> S2 Episode 2 on JioHotstar" — the platform suffix uses
+    // "on", not a dash, and the episode has to be split off or a poster
+    // lookup has nothing to match.
     const stripped = (document.title || "")
-      .replace(/\s*[-|–]\s*(Netflix|Prime Video|Hotstar|JioHotstar|Disney\+ Hotstar)\s*$/i, "")
+      .replace(/\s*[-|–]\s*(Netflix|Prime Video|Hotstar|JioHotstar|Disney\+\s*Hotstar)\s*$/i, "")
+      .replace(/\s+on\s+(JioHotstar|Disney\+\s*Hotstar|Hotstar)\s*$/i, "")
       .replace(/^\s*(Watch|Prime Video:)\s*/i, "")
       .trim();
-    if (stripped && !/^(netflix|prime video|hotstar|jiohotstar)$/i.test(stripped)) {
-      return { title: stripped, subtitle: "" };
+    if (!stripped || /^(netflix|prime video|hotstar|jiohotstar)$/i.test(stripped)) return null;
+
+    const episode = stripped.match(
+      /^(.*?)\s+S(?:eason\s*)?(\d+)\s*(?:Episode|Ep|E)\s*(\d+)\b\s*(.*)$/i);
+    if (episode) {
+      const trailing = episode[4] ? ` · ${episode[4].trim()}` : "";
+      return {
+        title: episode[1].trim(),
+        subtitle: `S${episode[2]} · E${episode[3]}${trailing}`,
+      };
     }
-    return null;
+    return { title: stripped, subtitle: "" };
+  }
+
+  /// Reports which "next episode" controls a page exposes so a platform's
+  /// skip button can be identified without guessing. Player chrome auto-hides
+  /// on most services, so the richest result seen is remembered rather than
+  /// whatever happens to be mounted at poll time.
+  let bestSkipProbe = "";
+
+  function collectDeep(root, out, depth) {
+    if (depth > 4 || out.length > 12) return;
+    let nodes = [];
+    try {
+      nodes = Array.from(root.querySelectorAll("button, [role=button], div, span, a"));
+    } catch {
+      return;
+    }
+    for (const el of nodes) {
+      const label = [
+        el.getAttribute && el.getAttribute("aria-label"),
+        el.getAttribute && el.getAttribute("title"),
+        el.getAttribute && el.getAttribute("data-testid"),
+        typeof el.className === "string" ? el.className : "",
+      ].filter(Boolean).join(" ");
+      if (/next\s*ep|nextepisode|next-episode|skip.*intro|up\s*next/i.test(label)) {
+        const tag = el.tagName.toLowerCase();
+        const id = el.getAttribute("data-testid") || el.getAttribute("aria-label") || "";
+        out.push(`${tag}:${id.slice(0, 28)}`);
+        if (out.length > 12) return;
+      }
+      if (el.shadowRoot) collectDeep(el.shadowRoot, out, depth + 1);
+    }
+  }
+
+  function probeSkipControls() {
+    const hits = [];
+    collectDeep(document, hits, 0);
+    const buttons = document.querySelectorAll("button").length;
+    const shadowHosts = Array.from(document.querySelectorAll("*"))
+      .filter((e) => e.shadowRoot).length;
+    const probe = `skipHits=[${hits.join(" ")}] buttons=${buttons} shadowHosts=${shadowHosts}`;
+    if (hits.length || !bestSkipProbe) bestSkipProbe = probe;
+    return bestSkipProbe;
   }
 
   /// Streaming sites that don't publish Media Session data still need to be
@@ -86,8 +140,8 @@
       playbackState: "playing",
       href: location.href,
       debug: `noMediaSession docTitle=${document.title || "-"} ` +
-        `videoTitleEl=${!!document.querySelector('[data-uia="video-title"]')} ` +
-        `resolved=${shown ? shown.title : "-"}`,
+        `resolved=${shown ? shown.title : "-"} sub=${shown ? shown.subtitle : "-"} ` +
+        probeSkipControls(),
     };
   }
 
