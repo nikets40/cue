@@ -341,6 +341,9 @@ async function toggleFullscreen() {
  *  can't. Trusted input is the only thing Chrome accepts, and only the native
  *  app can produce it. */
 async function focusPlayer() {
+  // A suspended service worker loses tabStates, and without this the command
+  // would report "no playing tab" purely because the map hadn't been rebuilt.
+  if (tabStates.size === 0) await refreshTabStates();
   const targetId = currentPlayingTabId();
   if (targetId == null) {
     report("fullscreen: no playing tab");
@@ -350,10 +353,15 @@ async function focusPlayer() {
     const tab = await chrome.tabs.get(targetId);
     await chrome.tabs.update(targetId, { active: true });
     await chrome.windows.update(tab.windowId, { focused: true });
-    const reply = await chrome.tabs.sendMessage(targetId, {
-      type: "cueCommand",
-      command: "focusPlayer",
-    });
+    // frameId 0 confines this to the top document. Without it the message
+    // broadcasts to every frame, and an iframe that focuses its own element
+    // pulls keyboard focus inside itself — after which the top document never
+    // sees the keystroke. Netflix renders ad breaks in exactly such a frame.
+    const reply = await chrome.tabs.sendMessage(
+      targetId,
+      { type: "cueCommand", command: "focusPlayer" },
+      { frameId: 0 }
+    );
     report(`fullscreen: focused ${reply && reply.how ? reply.how : "tab"}`);
   } catch (error) {
     report(`fullscreen: focus failed: ${(error && error.message) || error}`);

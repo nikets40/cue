@@ -144,9 +144,15 @@
   /// identified, or the phone has no platform logo to fall back to. A playing
   /// <video> plus the document title is enough to name the source.
   function readVideoFallback() {
-    const video = Array.from(document.querySelectorAll("video")).find(
-      (v) => !v.paused && v.readyState > 2 && v.duration > 0
+    const loaded = Array.from(document.querySelectorAll("video")).filter(
+      (v) => v.readyState > 2 && v.duration > 0
     );
+    // Prefer a playing video, but fall back to a paused one. Reporting the
+    // paused state matters: this is the only path Netflix takes, so returning
+    // null while paused meant the tab went silent forever, leaving the service
+    // worker's last "playing: true" entry to grow stale — and commands aimed at
+    // the playing tab then landed on whichever tab had gone quiet first.
+    const video = loaded.find((v) => !v.paused) || loaded[0];
     if (!video) return null;
     // Netflix takes this path — it publishes no Media Session metadata at all,
     // and its document title is just "Netflix", so the programme name has to
@@ -157,8 +163,10 @@
       artist: shown ? shown.subtitle : "",
       album: "",
       artwork: [],
-      playbackState: "playing",
+      playbackState: video.paused ? "paused" : "playing",
       href: location.href,
+      position: video.currentTime,
+      mediaDuration: video.duration,
       debug: `noMediaSession docTitle=${document.title || "-"} ` +
         `resolved=${shown ? shown.title : "-"} sub=${shown ? shown.subtitle : "-"} ` +
         probeSkipControls(),
@@ -200,7 +208,19 @@
       })),
       playbackState: session.playbackState || "none",
       href: location.href,
+      ...mediaPosition(),
     };
+  }
+
+  /// The playing video's exact position. Booth prefers this over MediaRemote's
+  /// figure, which only refreshes on change and drifts badly on some sites.
+  function mediaPosition() {
+    const loaded = Array.from(document.querySelectorAll("video, audio")).filter(
+      (m) => m.readyState > 0 && m.duration > 0 && isFinite(m.duration)
+    );
+    const media = loaded.find((m) => !m.paused) || loaded[0];
+    if (!media) return {};
+    return { position: media.currentTime, mediaDuration: media.duration };
   }
 
   // --- Queue reading (MAIN world only) ---

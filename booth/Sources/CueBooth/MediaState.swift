@@ -66,6 +66,9 @@ final class MediaState: ObservableObject {
     /// "Netflix"), so for them the page is the authority on what's on screen
     /// and a title match can't be required.
     private var playingPageMetadata: PageMetadata?
+    /// The page's own playback position, with the moment it arrived so it can
+    /// be brought up to date. See `browserPosition`.
+    private var pagePosition: (seconds: Double, duration: Double?, at: Date, playing: Bool)?
     private var browserTabs: [PageTabs.Tab] = []
 
     /// Favicon-scale artwork, i.e. not real cover art.
@@ -142,6 +145,10 @@ final class MediaState: ObservableObject {
             // Recorded even without a resolvable title: the service alone is
             // enough to show the platform's logo.
             if metadata.playing == true { self.playingPageMetadata = metadata }
+            if let position = metadata.position {
+                self.pagePosition = (position, metadata.mediaDuration, Date(),
+                                     metadata.playing == true)
+            }
             if let title = metadata.title {
                 let key = Self.normalize(title)
                 if !key.isEmpty {
@@ -290,16 +297,15 @@ final class MediaState: ObservableObject {
             if useProviderQueue, isVideoService,
                server.sendToProvider(ProviderCommand(command: .previousTrack)) { return }
             send("previous-track")
-        case .skipForward15:
-            // Prefer the player's own jump button on video sites: relative
-            // seeking there depends on a reported position that drifts.
-            if useProviderQueue, isVideoService,
-               server.sendToProvider(ProviderCommand(command: .skipForward)) { return }
-            skip(by: 15)
-        case .skipBack15:
-            if useProviderQueue, isVideoService,
-               server.sendToProvider(ProviderCommand(command: .skipBack)) { return }
-            skip(by: -15)
+        // Both directions go through the same absolute seek the scrubber uses.
+        // Clicking the player's own jump buttons was tried and abandoned: those
+        // controls are unmounted from the DOM whenever the player UI fades, so
+        // the click worked only during the few seconds the bar happened to be
+        // on screen. Absolute seek has no such dependency — verified against a
+        // live Netflix player, which honoured it exactly while leaving playback
+        // untouched.
+        case .skipForward15: skip(by: 15)
+        case .skipBack15: skip(by: -15)
         case .seek: if let value = command.value { seek(to: value) }
         case .setVolume: if let value = command.value { setVolume(value) }
         case .requestPlaylist:
@@ -364,17 +370,28 @@ final class MediaState: ObservableObject {
             server.sendToProvider(ProviderCommand(command: .toggleFullscreen))
             return
         }
+        // "f" toggles, so two presses in quick succession enter fullscreen and
+        // leave again — indistinguishable from the command doing nothing.
+        guard !isFullscreening else {
+            log("fullscreen: ignoring, one already in flight")
+            return
+        }
+        isFullscreening = true
         server.sendToProvider(ProviderCommand(command: .focusPlayer))
         // The extension has to activate the tab, raise its window and move
         // focus before the key is any use; that round trip isn't instant.
         Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(450))
             guard let self else { return }
-            let sent = KeystrokeSender.send(key: KeystrokeSender.fKey, to: "com.google.Chrome")
+            let sent = await KeystrokeSender.send(key: KeystrokeSender.fKey, to: "com.google.Chrome")
             log(sent ? "fullscreen: sent f to Chrome" : "fullscreen: could not send keystroke")
             if !sent { self.server.sendToProvider(ProviderCommand(command: .toggleFullscreen)) }
+            self.isFullscreening = false
         }
     }
+
+    /// Set while a fullscreen toggle is mid-flight; see `fullscreenChrome`.
+    private var isFullscreening = false
 
     // MARK: - Source list
 
@@ -670,13 +687,33 @@ final class MediaState: ObservableObject {
 
     func seek(to seconds: Double) { runMediaControl(["seek", String(format: "%.2f", seconds)]) }
 
-    /// MediaRemote's native skip commands are ignored by most Chrome sites,
-    /// so skip is implemented as a relative seek instead.
+    /// MediaRemote's native skip commands are ignored by most Chrome sites, so
+    /// skip is an absolute seek to the current position plus an offset — the
+    /// same call the scrubber makes, which is the one thing every player
+    /// honours. `estimatedPosition` matters here: the stream only emits
+    /// position on change, so the raw `elapsedTime` runs stale between updates
+    /// and offsetting from it would jump to the wrong place.
     func skip(by seconds: Double) {
-        guard let position = nowPlaying.estimatedPosition() else { return }
+        guard let position = browserPosition() ?? nowPlaying.estimatedPosition() else { return }
         var target = max(position + seconds, 0)
-        if let duration = nowPlaying.duration { target = min(target, max(duration - 0.5, 0)) }
+        let duration = pagePosition?.duration ?? nowPlaying.duration
+        if let duration { target = min(target, max(duration - 0.5, 0)) }
         seek(to: target)
+    }
+
+    /// The browser page's own position, brought up to date, or nil when there
+    /// isn't a fresh one. Preferred over `estimatedPosition` for Chrome media:
+    /// MediaRemote only refreshes position on change, and on Netflix that was
+    /// measured running about fifteen seconds out in either direction — enough
+    /// for a ±15s jump to land back where it started, or nowhere near.
+    private func browserPosition() -> Double? {
+        guard nowPlaying.bundleIdentifier == "com.google.Chrome",
+              let page = pagePosition else { return nil }
+        let age = Date().timeIntervalSince(page.at)
+        // The extension reports about once a second; anything much older than
+        // that means it stopped reporting and the figure can't be trusted.
+        guard age < 5 else { return nil }
+        return page.playing ? page.seconds + age : page.seconds
     }
 
     private func runMediaControl(_ arguments: [String]) {

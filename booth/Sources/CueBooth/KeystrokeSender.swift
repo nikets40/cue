@@ -38,25 +38,36 @@ enum KeystrokeSender {
     /// focused the right tab and window — otherwise the keystroke lands
     /// somewhere unintended. Returns false when Accessibility is not granted
     /// or the app isn't running.
+    /// Async rather than blocking: callers run on the main actor, and sleeping
+    /// there would stall the dashboard and queue every inbound websocket
+    /// message behind this call.
     @discardableResult
-    static func send(key: CGKeyCode, to bundleIdentifier: String) -> Bool {
+    static func send(key: CGKeyCode, to bundleIdentifier: String) async -> Bool {
         guard hasAccessibilityPermission else { return false }
         guard let app = NSRunningApplication.runningApplications(
             withBundleIdentifier: bundleIdentifier
         ).first else { return false }
 
-        app.activate(options: [])
-
-        // Activation is asynchronous; posting immediately can deliver the key
-        // to the previously frontmost app.
-        Thread.sleep(forTimeInterval: 0.25)
+        // Only activate when Chrome isn't already frontmost. The extension has
+        // just raised the correct window, and activating again can re-raise
+        // whichever window Chrome itself considers frontmost, undoing that.
+        if !app.isActive {
+            app.activate(options: [])
+            // Activation is asynchronous; posting immediately can deliver the
+            // key to the previously frontmost app.
+            try? await Task.sleep(for: .milliseconds(250))
+        }
 
         let source = CGEventSource(stateID: .hidSystemState)
         guard let down = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true),
               let up = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false)
         else { return false }
+        // An event from a HID-state source inherits whatever modifiers are
+        // physically held, which would turn "f" into ⌘F.
+        down.flags = []
+        up.flags = []
         down.post(tap: .cghidEventTap)
-        Thread.sleep(forTimeInterval: 0.05)
+        try? await Task.sleep(for: .milliseconds(50))
         up.post(tap: .cghidEventTap)
         return true
     }

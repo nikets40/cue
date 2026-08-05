@@ -361,6 +361,16 @@ public struct PageMetadata: Codable, Equatable, Sendable {
     public var hasQueue: Bool?
     /// Diagnostic string from the extension, logged by Booth.
     public var debug: String?
+    /// The video element's exact playback position, in seconds.
+    ///
+    /// MediaRemote's position for browser media is only refreshed on change and
+    /// runs far out of step on some sites — measured drifting roughly fifteen
+    /// seconds either side on Netflix. That's invisible when dragging a
+    /// scrubber to somewhere you can see, but it makes a ±15s jump land
+    /// anywhere. The page itself always knows the true figure.
+    public var position: Double?
+    /// The video element's duration, so a skip can be clamped to the end.
+    public var mediaDuration: Double?
 
     public init(
         title: String? = nil, artist: String? = nil, album: String? = nil,

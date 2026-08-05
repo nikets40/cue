@@ -67,27 +67,6 @@ function queueItems() {
   return Array.from(document.querySelectorAll("ytd-playlist-panel-video-renderer"));
 }
 
-/// Players expose their own jump buttons (Hotstar labels them "Rewind 10
-/// seconds" / "Forward 10 seconds"). Clicking them is exact, where a relative
-/// seek depends on a reported position that can drift badly on these sites.
-function clickPlayerSkip(direction) {
-  const pattern = direction === "forward"
-    ? /forward|skip\s*ahead|jump\s*forward/i
-    : /rewind|back\s*\d+|jump\s*back/i;
-  const candidates = Array.from(
-    document.querySelectorAll('button, [role="button"]')
-  );
-  for (const el of candidates) {
-    const label = el.getAttribute("aria-label") || el.getAttribute("title") || "";
-    // Guard against matching "Go to full screen" or a next-episode control.
-    if (!pattern.test(label)) continue;
-    if (/episode|screen|volume/i.test(label)) continue;
-    el.click();
-    return true;
-  }
-  return false;
-}
-
 /// Video fullscreen can't be entered from a script: requestFullscreen() needs
 /// real user activation, and a synthetic click on the player's own button
 /// doesn't grant it (verified — the call fails with a permissions error).
@@ -118,7 +97,8 @@ function focusPlayer() {
   const containers = [
     "#movie_player",                      // youtube.com
     "ytmusic-player",                     // YouTube Music
-    ".watch-video",                       // Netflix
+    '[data-uia="player"]',                // Netflix — survives the control fade
+    ".watch-video",                       // Netflix, older markup
     "video",
   ];
   for (const selector of containers) {
@@ -242,12 +222,6 @@ function onRuntimeMessage(message, _sender, sendResponse) {
       break;
     case "previousTrack":
       sendResponse({ ok: clickVideoSiteSkip("previous") });
-      break;
-    case "skipForward":
-      sendResponse({ ok: clickPlayerSkip("forward") });
-      break;
-    case "skipBack":
-      sendResponse({ ok: clickPlayerSkip("back") });
       break;
     case "play":
       sendResponse(resumePlayback());
