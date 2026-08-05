@@ -329,12 +329,6 @@ final class MediaState: ObservableObject {
         }
         if let upgraded { state.artwork = upgraded.image }
 
-        // Video services: look the show up by title for a real poster.
-        if let service = currentService, PosterLookup.videoServices.contains(service),
-           let title = state.title, poster == nil {
-            poster = posterLookup.poster(for: title)
-        }
-        if let poster { state.artwork = poster.image }
 
         // Artwork priority: the page's own art (exact source) beats the
         // iTunes lookup, which beats MediaRemote's thumbnail.
@@ -360,6 +354,14 @@ final class MediaState: ObservableObject {
             state.title = pageTitle
             if let detail = page.artist, !detail.isEmpty { state.artist = detail }
         }
+
+        // Poster lookup runs last: it must see the programme name resolved
+        // above, not MediaRemote's "Netflix".
+        if let service = currentService, PosterLookup.videoServices.contains(service),
+           let title = state.title, !title.isEmpty, poster == nil {
+            poster = posterLookup.poster(for: title)
+        }
+        if let poster { state.artwork = poster.image }
         if currentService == nil, let title = state.title, let bundle = state.bundleIdentifier {
             currentService = serviceDetector.detect(
                 trackKey: trackKey, title: title, bundleIdentifier: bundle)
