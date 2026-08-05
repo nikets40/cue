@@ -1,3 +1,4 @@
+import AppKit
 import CueKit
 import Foundation
 
@@ -37,6 +38,22 @@ final class VLCClient {
 
     func resume() async {
         _ = await get("/requests/status.json?command=pl_play")
+    }
+
+    /// `pl_forcepause` rather than `pl_pause`, which toggles and would start
+    /// playback on an already-paused item.
+    func pause() async {
+        _ = await get("/requests/status.json?command=pl_forcepause")
+    }
+
+    /// VLC's web interface can't raise its window, so the app is brought
+    /// forward through LaunchServices instead.
+    func bringToFront() {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.bundleIdentifier)
+        else { return }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.openApplication(at: url, configuration: configuration)
     }
 
     /// What VLC currently holds, for the source list. Nil when VLC isn't

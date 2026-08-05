@@ -265,6 +265,9 @@ public struct ProviderCommand: Codable, Equatable, Sendable {
         case listTabs
         /// Uses `tabId`: focus that tab and start it playing.
         case activateTab
+        /// Pause every media tab except `tabId` (nil pauses them all), so
+        /// switching sources doesn't leave two things playing at once.
+        case pauseOtherTabs
         /// Video platforms ignore the system skip commands, so their own
         /// player controls have to be clicked instead.
         case nextTrack

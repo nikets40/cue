@@ -154,9 +154,12 @@ struct RemoteView: View {
                 }
                 .padding(.trailing, 14)
             }
-            Button("Disconnect") { client.disconnect() }
-                .font(.footnote.weight(.medium))
-                .foregroundStyle(.white.opacity(0.75))
+            Button { client.disconnect() } label: {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.75))
+            }
+            .accessibilityLabel("Disconnect")
         }
     }
 

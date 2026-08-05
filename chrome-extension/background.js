@@ -177,6 +177,18 @@ async function handleCommand({ command, index, tabId }) {
     if (tabId != null) await activateTab(tabId);
     return;
   }
+  if (command === "pauseOtherTabs") {
+    await Promise.all(
+      Array.from(tabStates.keys())
+        .filter((id) => id !== tabId)
+        .map((id) =>
+          chrome.tabs
+            .sendMessage(id, { type: "cueCommand", command: "pause" })
+            .catch(() => {})
+        )
+    );
+    return;
+  }
   if (playingTabId == null) return;
   let reply = null;
   try {

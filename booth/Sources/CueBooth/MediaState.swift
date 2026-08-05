@@ -377,7 +377,12 @@ final class MediaState: ObservableObject {
     }
 
     private func activate(sourceID: String) {
+        // Switching should feel like changing channel: silence whatever else
+        // is playing before starting the pick, or two things play at once.
+        pauseSources(except: sourceID)
+
         if sourceID == "vlc" {
+            vlc.bringToFront()
             Task { [weak self] in await self?.vlc.resume() }
             return
         }
@@ -388,6 +393,19 @@ final class MediaState: ObservableObject {
         if sourceID.hasPrefix("tab:"), let tabID = Int(sourceID.dropFirst(4)) {
             server.sendToProvider(ProviderCommand(command: .activateTab, tabId: tabID))
         }
+    }
+
+    private func pauseSources(except sourceID: String) {
+        if sourceID != "vlc" {
+            Task { [weak self] in await self?.vlc.pause() }
+        }
+        if !sourceID.hasPrefix("qt:") {
+            quickTime.perform(.pause)
+        }
+        // Tabs other than the target are paused in the extension, which is the
+        // only side that knows which tabs exist.
+        let keepTab = sourceID.hasPrefix("tab:") ? Int(sourceID.dropFirst(4)) : nil
+        server.sendToProvider(ProviderCommand(command: .pauseOtherTabs, tabId: keepTab))
     }
 
     /// The extension only controls browser tabs, so route queue actions to it

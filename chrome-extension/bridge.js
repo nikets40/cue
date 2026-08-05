@@ -203,6 +203,12 @@ function onRuntimeMessage(message, _sender, sendResponse) {
     case "play":
       sendResponse(resumePlayback());
       break;
+    case "pause": {
+      const media = document.querySelector("video, audio");
+      if (media && !media.paused) media.pause();
+      sendResponse({ ok: !!media });
+      break;
+    }
     case "forceReport":
       window.postMessage({ source: "cue-force-report" }, "*");
       sendResponse({ ok: true });
