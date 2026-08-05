@@ -45,7 +45,9 @@ struct RemoteView: View {
 
     var body: some View {
         ZStack {
-            BackdropView(artwork: client.artwork, brand: brand)
+            BackdropView(
+                artwork: client.artwork, brand: brand,
+                backdropURL: state.backdropURL)
             if verticalSizeClass == .compact { landscape } else { portrait }
         }
         .preferredColorScheme(.dark)
@@ -291,23 +293,35 @@ struct RemoteView: View {
 struct BackdropView: View {
     let artwork: UIImage?
     let brand: ServiceBrand?
+    /// A wide 16:9 still, when the source has one. It covers the screen far
+    /// better than a blurred portrait poster, which has to be scaled hard to
+    /// fill and washes out at the edges.
+    var backdropURL: String?
 
     var body: some View {
         ZStack {
             RadialGradient(
                 colors: [Color(red: 0.15, green: 0.13, blue: 0.22), Color(red: 0.06, green: 0.055, blue: 0.09)],
                 center: .top, startRadius: 0, endRadius: 900)
-            if let artwork {
+            if let backdropURL, let url = URL(string: backdropURL) {
                 GeometryReader { geo in
-                    Image(uiImage: artwork)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: geo.size.width, height: geo.size.height)
-                        .clipped()
-                        .saturation(1.35)
-                        .blur(radius: 46, opaque: true)
-                        .scaleEffect(1.35)
+                    AsyncImage(url: url) { phase in
+                        if case .success(let image) = phase {
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: geo.size.width, height: geo.size.height)
+                                .clipped()
+                                .saturation(1.2)
+                                .blur(radius: 40, opaque: true)
+                                .scaleEffect(1.2)
+                        } else if let artwork {
+                            blurred(artwork, in: geo.size)
+                        }
+                    }
                 }
+            } else if let artwork {
+                GeometryReader { geo in blurred(artwork, in: geo.size) }
             } else if let brand {
                 RadialGradient(
                     colors: [brand.tint.opacity(0.5), .clear],
@@ -318,6 +332,17 @@ struct BackdropView: View {
                 startPoint: .top, endPoint: .bottom)
         }
         .ignoresSafeArea()
+    }
+
+    private func blurred(_ image: UIImage, in size: CGSize) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFill()
+            .frame(width: size.width, height: size.height)
+            .clipped()
+            .saturation(1.35)
+            .blur(radius: 46, opaque: true)
+            .scaleEffect(1.35)
     }
 }
 

@@ -44,6 +44,9 @@ public struct NowPlayingState: Codable, Equatable, Sendable {
     /// Detected streaming service (e.g. "netflix", "ytmusic") for branded
     /// fallback art on the client; nil when unknown.
     public var service: String?
+    /// Wide 16:9 still for the background wash, sent as a URL the client
+    /// fetches itself — it's decorative, so it isn't worth the payload.
+    public var backdropURL: String?
     /// "like", "dislike", or "indifferent" when the source exposes it.
     public var likeStatus: String?
     /// True when a richer queue is reachable (browser extension or VLC), so
@@ -55,7 +58,8 @@ public struct NowPlayingState: Codable, Equatable, Sendable {
         sourceApp: String? = nil, playing: Bool = false, duration: Double? = nil,
         elapsedTime: Double? = nil, timestamp: Date? = nil, playbackRate: Double = 1,
         artworkBase64: String? = nil, artworkMimeType: String? = nil, volume: Double = 0,
-        service: String? = nil, likeStatus: String? = nil, hasQueue: Bool = false
+        service: String? = nil, backdropURL: String? = nil,
+        likeStatus: String? = nil, hasQueue: Bool = false
     ) {
         self.title = title
         self.artist = artist
@@ -70,6 +74,7 @@ public struct NowPlayingState: Codable, Equatable, Sendable {
         self.artworkMimeType = artworkMimeType
         self.volume = volume
         self.service = service
+        self.backdropURL = backdropURL
         self.likeStatus = likeStatus
         self.hasQueue = hasQueue
     }
