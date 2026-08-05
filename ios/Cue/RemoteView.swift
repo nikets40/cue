@@ -43,6 +43,13 @@ struct RemoteView: View {
     private var state: NowPlayingState { client.state ?? NowPlayingState() }
     private var brand: ServiceBrand? { state.service.flatMap(ServiceBrand.init(rawValue:)) }
 
+    /// Video thumbnails are 16:9 and look stranded at the square art's width,
+    /// so they're allowed to run the full content width instead.
+    private var coverMaxWidth: CGFloat {
+        guard let artwork = client.artwork, artwork.size.height > 0 else { return 260 }
+        return artwork.size.width / artwork.size.height > 1.2 ? .infinity : 260
+    }
+
     var body: some View {
         ZStack {
             BackdropView(artwork: client.artwork, brand: brand)
@@ -76,10 +83,11 @@ struct RemoteView: View {
         VStack(spacing: 28) {
             header
             Spacer(minLength: 0)
-            // A square cover fills the width; a taller poster is bounded by
-            // height so it can't push the controls off screen.
+            // Wide artwork spans the full content width so it lines up with
+            // the sliders; square and portrait art stays at a size that
+            // leaves room for the controls.
             CoverView(artwork: client.artwork, brand: brand)
-                .frame(maxWidth: 260, maxHeight: 300)
+                .frame(maxWidth: coverMaxWidth, maxHeight: 300)
             trackInfo
             progressSection
             transportSection
