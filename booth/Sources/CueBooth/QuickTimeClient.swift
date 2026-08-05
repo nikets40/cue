@@ -1,3 +1,5 @@
+import AVFoundation
+import AppKit
 import Foundation
 
 /// QuickTime Player doesn't register with macOS Now Playing at all — nothing
@@ -13,6 +15,12 @@ final class QuickTimeClient {
         var playing: Bool
         var position: Double
         var duration: Double
+        var path: String?
+    }
+
+    struct Thumbnail {
+        let base64: String
+        let image: NSImage
     }
 
     enum Action {
@@ -48,8 +56,12 @@ final class QuickTimeClient {
     tell application "QuickTime Player"
       if (count of documents) is 0 then return "none"
       set d to document 1
+      set p to ""
+      try
+        set p to POSIX path of (get file of d)
+      end try
       return (name of d) & "\\t" & (playing of d) & "\\t" & ((current time of d) as integer) \
-        & "\\t" & ((duration of d) as integer)
+        & "\\t" & ((duration of d) as integer) & "\\t" & p
     end tell
     """
 
@@ -94,11 +106,51 @@ final class QuickTimeClient {
         let parts = trimmed.components(separatedBy: "\t")
         guard parts.count >= 4, let position = Double(parts[2]), let duration = Double(parts[3])
         else { return nil }
+        let path = parts.count > 4 ? parts[4] : ""
         return State(
             title: parts[0],
             playing: parts[1] == "true",
             position: position,
-            duration: duration)
+            duration: duration,
+            path: path.isEmpty ? nil : path)
+    }
+
+    /// A representative frame, taken 10% in so an opening fade-from-black
+    /// doesn't produce an empty thumbnail. Cached per file.
+    private var thumbnails: [String: Thumbnail] = [:]
+    private var thumbnailMisses: Set<String> = []
+
+    func thumbnail(for path: String) -> Thumbnail? {
+        if let hit = thumbnails[path] { return hit }
+        guard !thumbnailMisses.contains(path) else { return nil }
+        thumbnailMisses.insert(path)  // one attempt per file
+        Task { [weak self] in
+            guard let made = await Self.makeThumbnail(path: path) else { return }
+            self?.thumbnails[path] = made
+            self?.onThumbnail?(path, made)
+        }
+        return nil
+    }
+
+    var onThumbnail: ((String, Thumbnail) -> Void)?
+
+    nonisolated private static func makeThumbnail(path: String) async -> Thumbnail? {
+        let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 640, height: 640)
+        guard let duration = try? await asset.load(.duration) else { return nil }
+        let seconds = CMTimeGetSeconds(duration)
+        guard seconds.isFinite, seconds > 0 else { return nil }
+        let at = CMTime(seconds: max(1, seconds * 0.1), preferredTimescale: 600)
+        guard let (cgImage, _) = try? await generator.image(at: at) else { return nil }
+        let bitmap = NSBitmapImageRep(cgImage: cgImage)
+        guard let jpeg = bitmap.representation(
+            using: .jpeg, properties: [.compressionFactor: 0.8])
+        else { return nil }
+        return Thumbnail(
+            base64: jpeg.base64EncodedString(),
+            image: NSImage(cgImage: cgImage, size: .zero))
     }
 
     nonisolated private static func run(_ source: String) async -> String? {

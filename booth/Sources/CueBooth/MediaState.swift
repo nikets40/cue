@@ -150,6 +150,11 @@ final class MediaState: ObservableObject {
             self.upgraded = upgrade
             self.rebuildNowPlaying()
         }
+        quickTime.onThumbnail = { [weak self] _, _ in
+            // Frame extraction is async; nudge a broadcast once it lands.
+            guard let self else { return }
+            self.server.broadcast(self.snapshot())
+        }
         posterLookup.onPoster = { [weak self] poster in
             guard let self,
                   poster.key == Self.normalize(self.nowPlaying.title ?? "") else { return }
@@ -194,6 +199,7 @@ final class MediaState: ObservableObject {
 
     func snapshot() -> NowPlayingState {
         if let state = quickTimeState, usingQuickTime {
+            let frame = state.path.flatMap { quickTime.thumbnail(for: $0) }
             return NowPlayingState(
                 title: state.title,
                 artist: "QuickTime Player",
@@ -203,6 +209,8 @@ final class MediaState: ObservableObject {
                 elapsedTime: state.position,
                 timestamp: Date(),
                 playbackRate: state.playing ? 1 : 0,
+                artworkBase64: frame?.base64,
+                artworkMimeType: frame != nil ? "image/jpeg" : nil,
                 volume: volume)
         }
         return NowPlayingState(
