@@ -109,14 +109,34 @@
     }
   }
 
+  /// Identifies a control element compactly enough to log.
+  function describe(el) {
+    const parts = [
+      el.getAttribute("aria-label"),
+      el.getAttribute("data-testid"),
+      el.getAttribute("title"),
+      typeof el.className === "string" ? el.className.split(/\s+/)[0] : "",
+    ].filter(Boolean);
+    return (parts[0] || el.tagName.toLowerCase()).slice(0, 26).replace(/\s+/g, "_");
+  }
+
   function probeSkipControls() {
     const hits = [];
     collectDeep(document, hits, 0);
-    const buttons = document.querySelectorAll("button").length;
-    const shadowHosts = Array.from(document.querySelectorAll("*"))
-      .filter((e) => e.shadowRoot).length;
-    const probe = `skipHits=[${hits.join(" ")}] buttons=${buttons} shadowHosts=${shadowHosts}`;
-    if (hits.length || !bestSkipProbe) bestSkipProbe = probe;
+    // Nothing matched the known patterns, so report what the player actually
+    // has — the platform evidently names its controls something else.
+    const buttons = Array.from(document.querySelectorAll("button")).map(describe);
+    const host = Array.from(document.querySelectorAll("*")).find((e) => e.shadowRoot);
+    let shadow = [];
+    if (host && host.shadowRoot) {
+      try {
+        shadow = Array.from(host.shadowRoot.querySelectorAll("button, [role=button]"))
+          .map(describe).slice(0, 8);
+      } catch { /* closed root */ }
+    }
+    const probe = `skipHits=[${hits.join(" ")}] btns=[${buttons.slice(0, 12).join(",")}]`
+      + ` shadow=[${shadow.join(",")}]`;
+    if (hits.length || buttons.length > 2 || !bestSkipProbe) bestSkipProbe = probe;
     return bestSkipProbe;
   }
 

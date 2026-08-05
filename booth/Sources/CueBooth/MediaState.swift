@@ -250,8 +250,16 @@ final class MediaState: ObservableObject {
             if useProviderQueue, isVideoService,
                server.sendToProvider(ProviderCommand(command: .previousTrack)) { return }
             send("previous-track")
-        case .skipForward15: skip(by: 15)
-        case .skipBack15: skip(by: -15)
+        case .skipForward15:
+            // Prefer the player's own jump button on video sites: relative
+            // seeking there depends on a reported position that drifts.
+            if useProviderQueue, isVideoService,
+               server.sendToProvider(ProviderCommand(command: .skipForward)) { return }
+            skip(by: 15)
+        case .skipBack15:
+            if useProviderQueue, isVideoService,
+               server.sendToProvider(ProviderCommand(command: .skipBack)) { return }
+            skip(by: -15)
         case .seek: if let value = command.value { seek(to: value) }
         case .setVolume: if let value = command.value { setVolume(value) }
         case .requestPlaylist:

@@ -67,6 +67,27 @@ function queueItems() {
   return Array.from(document.querySelectorAll("ytd-playlist-panel-video-renderer"));
 }
 
+/// Players expose their own jump buttons (Hotstar labels them "Rewind 10
+/// seconds" / "Forward 10 seconds"). Clicking them is exact, where a relative
+/// seek depends on a reported position that can drift badly on these sites.
+function clickPlayerSkip(direction) {
+  const pattern = direction === "forward"
+    ? /forward|skip\s*ahead|jump\s*forward/i
+    : /rewind|back\s*\d+|jump\s*back/i;
+  const candidates = Array.from(
+    document.querySelectorAll('button, [role="button"]')
+  );
+  for (const el of candidates) {
+    const label = el.getAttribute("aria-label") || el.getAttribute("title") || "";
+    // Guard against matching "Go to full screen" or a next-episode control.
+    if (!pattern.test(label)) continue;
+    if (/episode|screen|volume/i.test(label)) continue;
+    el.click();
+    return true;
+  }
+  return false;
+}
+
 /// Netflix ignores the system next/previous commands, so episode changes have
 /// to be driven from its own player controls.
 function clickVideoSiteSkip(direction) {
@@ -145,6 +166,12 @@ function onRuntimeMessage(message, _sender, sendResponse) {
       break;
     case "previousTrack":
       sendResponse({ ok: clickVideoSiteSkip("previous") });
+      break;
+    case "skipForward":
+      sendResponse({ ok: clickPlayerSkip("forward") });
+      break;
+    case "skipBack":
+      sendResponse({ ok: clickPlayerSkip("back") });
       break;
     default:
       sendResponse({ ok: false });

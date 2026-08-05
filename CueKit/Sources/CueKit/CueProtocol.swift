@@ -209,6 +209,10 @@ public struct ProviderCommand: Codable, Equatable, Sendable {
         /// player controls have to be clicked instead.
         case nextTrack
         case previousTrack
+        /// Relative seeking drifts on some players; clicking the platform's
+        /// own skip buttons is exact.
+        case skipForward
+        case skipBack
     }
 
     public var command: Action
