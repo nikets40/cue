@@ -186,7 +186,6 @@ final class MediaState: ObservableObject {
                 ?? poster?.mimeType ?? upgraded?.mimeType ?? artworkMimeType,
             volume: volume,
             service: currentService,
-            backdropURL: poster?.backdropURL,
             likeStatus: livePageMetadata(for: nowPlaying.title)?.likeStatus,
             hasQueue: (useProviderQueue && playingPageMetadata?.hasQueue == true)
                 || nowPlaying.bundleIdentifier == VLCClient.bundleIdentifier)

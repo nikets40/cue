@@ -17,9 +17,6 @@ final class PosterLookup {
         let mimeType: String
         let image: NSImage
         let title: String?
-        /// Wide still for the client's background wash; a URL rather than
-        /// bytes since it's decorative.
-        let backdropURL: String?
     }
 
     /// Services whose artwork is worth looking up; music services already get
@@ -90,7 +87,7 @@ final class PosterLookup {
     /// there" — the API is intermittently unreachable on some networks, and a
     /// transient failure must not be remembered as a miss.
     enum SearchOutcome {
-        case found(path: String, name: String?, backdrop: String?)
+        case found(path: String, name: String?)
         case noResult
         case unreachable
     }
@@ -104,12 +101,12 @@ final class PosterLookup {
     private static func fetch(title: String, key: String, credential: String) async -> FetchOutcome {
         var sawNetworkFailure = false
         for variant in searchVariants(of: title) {
-            var hit: (path: String, name: String?, backdrop: String?)?
+            var hit: (path: String, name: String?)?
             // Retry around flaky connectivity before giving up on this variant.
             for attempt in 0..<3 {
                 switch await search(variant, credential: credential) {
-                case .found(let path, let name, let backdrop):
-                    hit = (path, name, backdrop)
+                case .found(let path, let name):
+                    hit = (path, name)
                 case .noResult:
                     hit = nil
                 case .unreachable:
@@ -130,8 +127,7 @@ final class PosterLookup {
                 .value(forHTTPHeaderField: "Content-Type") ?? "image/jpeg"
             return .poster(Poster(
                 key: key, base64: data.base64EncodedString(), mimeType: mime,
-                image: image, title: hit.name,
-                backdropURL: hit.backdrop.map { "https://image.tmdb.org/t/p/w1280\($0)" }))
+                image: image, title: hit.name))
         }
         if sawNetworkFailure {
             log("TMDB unreachable for \"\(title)\" — retrying in \(Int(retryCooldown))s")
@@ -172,11 +168,9 @@ final class PosterLookup {
             let type = result["media_type"] as? String
             guard type == "tv" || type == "movie" else { continue }
             guard let path = result["poster_path"] as? String, !path.isEmpty else { continue }
-            let backdrop = (result["backdrop_path"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             return .found(
                 path: path,
-                name: result["name"] as? String ?? result["title"] as? String,
-                backdrop: backdrop)
+                name: result["name"] as? String ?? result["title"] as? String)
         }
         return .noResult
     }
