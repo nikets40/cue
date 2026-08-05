@@ -7,3 +7,6 @@ ios/Cue/Info.plist
 xcuserdata/
 DerivedData/
 dist/
+.build-dev/
+site/.next/
+site/node_modules/
