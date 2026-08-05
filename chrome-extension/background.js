@@ -305,25 +305,36 @@ async function pressKeyTrusted(tabId, key) {
   }
 }
 
+/** The tab actually playing right now, taken from live per-tab state rather
+ *  than the last-seen pointer, which goes stale when a tab pauses. */
+function currentPlayingTabId() {
+  for (const [id, entry] of tabStates) {
+    if (entry.playing) return id;
+  }
+  return playingTabId;
+}
+
 async function toggleFullscreen() {
-  if (playingTabId == null) {
+  const targetId = currentPlayingTabId();
+  if (targetId == null) {
     report("fullscreen: no playing tab");
     return;
   }
   try {
-    const tab = await chrome.tabs.get(playingTabId);
-    await chrome.tabs.update(playingTabId, { active: true });
+    const tab = await chrome.tabs.get(targetId);
+    await chrome.tabs.update(targetId, { active: true });
     if (tab.windowId != null) {
       await chrome.windows.update(tab.windowId, { focused: true });
     }
-    await pressKeyTrusted(playingTabId, "f");
-    report("fullscreen: sent trusted f");
+    await pressKeyTrusted(targetId, "f");
+    report(`fullscreen: sent trusted f to "${(tab.title || "").slice(0, 30)}"`);
   } catch (error) {
     // Falling back to a fullscreen window still fills the screen, just with
     // the browser chrome showing.
     report(`fullscreen: trusted key failed (${(error && error.message) || error}), using window`);
     try {
-      const tab = await chrome.tabs.get(playingTabId);
+      const fallbackId = currentPlayingTabId();
+      const tab = await chrome.tabs.get(fallbackId);
       const window = await chrome.windows.get(tab.windowId);
       await chrome.windows.update(tab.windowId, {
         state: window.state === "fullscreen" ? "normal" : "fullscreen",
@@ -374,10 +385,13 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     } catch {}
     report(`first pageMeta from ${host} title="${message.payload.title}" state=${message.payload.playbackState}`);
   }
-  if (message.payload.playbackState === "playing" && sender.tab) {
-    playingTabId = sender.tab.id;
-  } else if (playingTabId == null && sender.tab) {
-    playingTabId = sender.tab.id;
+  if (sender.tab) {
+    if (message.payload.playbackState === "playing") {
+      playingTabId = sender.tab.id;
+    } else if (playingTabId === sender.tab.id) {
+      // It stopped, so it's no longer the tab commands should act on.
+      playingTabId = null;
+    }
   }
   forward(message.payload);
 });
