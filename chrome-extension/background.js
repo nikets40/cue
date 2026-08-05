@@ -12,6 +12,11 @@ const artworkCache = new Map(); // artwork src -> { base64, mimeType }
 let lastSentKey = "";
 /** Tab that last reported itself as playing — the one commands act on. */
 let playingTabId = null;
+// The last tab that reported real media, kept across pauses. playingTabId is
+// deliberately cleared when playback stops, but the phone still displays that
+// track, so commands aimed at "what I'm looking at" need a target that
+// survives a pause.
+let lastMediaTabId = null;
 /** Latest report from every tab holding media, so paused ones stay listable. */
 const tabStates = new Map();
 
@@ -277,11 +282,20 @@ async function refreshTabStates() {
 
 /** The tab actually playing right now, taken from live per-tab state rather
  *  than the last-seen pointer, which goes stale when a tab pauses. */
+/** The tab commands should act on: whatever is actually playing, else the last
+ *  one that was. Falling back matters because the phone keeps showing a paused
+ *  track, and fullscreening it is a normal thing to want before hitting play. */
 function currentPlayingTabId() {
   for (const [id, entry] of tabStates) {
     if (entry.playing) return id;
   }
-  return playingTabId;
+  if (playingTabId != null) return playingTabId;
+  if (lastMediaTabId != null && tabStates.has(lastMediaTabId)) return lastMediaTabId;
+  // Nothing is playing and nothing was: fall back to any tab holding media.
+  for (const [id, entry] of tabStates) {
+    if (entry.title) return id;
+  }
+  return null;
 }
 
 /** Focuses the playing tab and fullscreens its window.
@@ -333,6 +347,7 @@ async function activateTab(tabId) {
 chrome.tabs.onRemoved.addListener((tabId) => {
   tabStates.delete(tabId);
   if (playingTabId === tabId) playingTabId = null;
+  if (lastMediaTabId === tabId) lastMediaTabId = null;
 });
 
 chrome.runtime.onMessage.addListener((message, sender) => {
@@ -355,6 +370,7 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     report(`first pageMeta from ${host} title="${message.payload.title}" state=${message.payload.playbackState}`);
   }
   if (sender.tab) {
+    if (message.payload.title) lastMediaTabId = sender.tab.id;
     if (message.payload.playbackState === "playing") {
       playingTabId = sender.tab.id;
     } else if (playingTabId === sender.tab.id) {
