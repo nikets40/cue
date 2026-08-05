@@ -88,18 +88,18 @@ function clickPlayerSkip(direction) {
   return false;
 }
 
-/// requestFullscreen() is refused without a user gesture, so the only way in
-/// from an extension is the player's own control. Falls back to double-
-/// clicking the video, which most players treat as a fullscreen toggle.
-function toggleFullscreen() {
+/// Video fullscreen can't be entered from a script: requestFullscreen() needs
+/// real user activation, and a synthetic click on the player's own button
+/// doesn't grant it (verified — the call fails with a permissions error).
+/// What is available is the site's own "wide"/theater layout, which is just a
+/// CSS mode. Combined with fullscreening the browser window (done in
+/// background.js, which has the API for it) the video ends up filling the
+/// screen anyway.
+function expandPlayer() {
   const selectors = [
-    ".ytp-fullscreen-button",                    // youtube.com
+    ".ytp-size-button",                          // youtube.com theater mode
+    'button[aria-label*="full screen" i]',       // YouTube Music, Hotstar, Prime
     '[data-uia="control-fullscreen-enter"]',     // Netflix
-    '[data-uia="control-fullscreen-exit"]',
-    'button[aria-label*="full screen" i]',       // Hotstar, Prime
-    'button[aria-label*="fullscreen" i]',
-    'button[title*="full screen" i]',
-    'button[title*="fullscreen" i]',
   ];
   for (const selector of selectors) {
     const el = document.querySelector(selector);
@@ -107,12 +107,7 @@ function toggleFullscreen() {
     el.click();
     return { ok: true, how: selector };
   }
-  const media = document.querySelector("video");
-  if (media) {
-    media.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
-    return { ok: true, how: "dblclick" };
-  }
-  return { ok: false, how: "no control found" };
+  return { ok: false, how: "no expand control" };
 }
 
 /// Netflix ignores the system next/previous commands, so episode changes have
@@ -236,8 +231,8 @@ function onRuntimeMessage(message, _sender, sendResponse) {
       sendResponse({ ok: !!media });
       break;
     }
-    case "toggleFullscreen":
-      sendResponse(toggleFullscreen());
+    case "expandPlayer":
+      sendResponse(expandPlayer());
       break;
     case "forceReport":
       window.postMessage({ source: "cue-force-report" }, "*");

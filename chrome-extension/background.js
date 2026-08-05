@@ -189,15 +189,9 @@ async function handleCommand({ command, index, tabId }) {
     );
     return;
   }
-  if (command === "toggleFullscreen" && playingTabId != null) {
-    // Fullscreen is only visible if the tab is actually frontmost.
-    try {
-      const tab = await chrome.tabs.get(playingTabId);
-      await chrome.tabs.update(playingTabId, { active: true });
-      if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
-    } catch {
-      // Tab vanished; the sendMessage below will fail and clean up.
-    }
+  if (command === "toggleFullscreen") {
+    await toggleFullscreen();
+    return;
   }
   if (playingTabId == null) return;
   let reply = null;
@@ -279,6 +273,33 @@ async function refreshTabStates() {
   );
   // page-reader polls at 1s; give it a beat to post.
   await new Promise((resolve) => setTimeout(resolve, 1400));
+}
+
+/** Fullscreens the browser window holding the playing tab, and asks the page
+ *  for its widest layout. The window API is the only route that works: the
+ *  page-level Fullscreen API requires user activation an extension can't
+ *  synthesise. Toggles back to a normal window on a second call. */
+async function toggleFullscreen() {
+  if (playingTabId == null) {
+    report("fullscreen: no playing tab");
+    return;
+  }
+  try {
+    const tab = await chrome.tabs.get(playingTabId);
+    await chrome.tabs.update(playingTabId, { active: true });
+    const window = await chrome.windows.get(tab.windowId);
+    const entering = window.state !== "fullscreen";
+    await chrome.windows.update(tab.windowId, {
+      state: entering ? "fullscreen" : "normal",
+      focused: true,
+    });
+    const reply = await chrome.tabs
+      .sendMessage(playingTabId, { type: "cueCommand", command: "expandPlayer" })
+      .catch(() => null);
+    report(`fullscreen: window ${entering ? "on" : "off"}, page ${reply ? reply.how : "no reply"}`);
+  } catch (error) {
+    report(`fullscreen failed: ${(error && error.message) || error}`);
+  }
 }
 
 async function activateTab(tabId) {
