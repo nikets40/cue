@@ -74,14 +74,20 @@
       (v) => !v.paused && v.readyState > 2 && v.duration > 0
     );
     if (!video) return null;
+    // Netflix takes this path — it publishes no Media Session metadata at all,
+    // and its document title is just "Netflix", so the programme name has to
+    // come from the player UI here too.
+    const shown = videoSiteTitle();
     return {
-      title: (document.title || "").replace(/\s*[-|]\s*(Netflix|Prime Video|Hotstar|JioHotstar)\s*$/i, "").trim(),
-      artist: "",
+      title: shown ? shown.title : "",
+      artist: shown ? shown.subtitle : "",
       album: "",
       artwork: [],
       playbackState: "playing",
       href: location.href,
-      fromVideoFallback: true,
+      debug: `noMediaSession docTitle=${document.title || "-"} ` +
+        `videoTitleEl=${!!document.querySelector('[data-uia="video-title"]')} ` +
+        `resolved=${shown ? shown.title : "-"}`,
     };
   }
 

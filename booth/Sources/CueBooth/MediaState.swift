@@ -123,12 +123,17 @@ final class MediaState: ObservableObject {
             self?.server.sendPlaylist(items)
         }
         server.onPageMetadata = { [weak self] metadata in
-            guard let self, let title = metadata.title else { return }
-            let key = Self.normalize(title)
-            guard !key.isEmpty else { return }
-            if self.pageMetadata.count > 20 { self.pageMetadata.removeAll() }
-            self.pageMetadata[key] = metadata
+            guard let self else { return }
+            // Recorded even without a resolvable title: the service alone is
+            // enough to show the platform's logo.
             if metadata.playing == true { self.playingPageMetadata = metadata }
+            if let title = metadata.title {
+                let key = Self.normalize(title)
+                if !key.isEmpty {
+                    if self.pageMetadata.count > 20 { self.pageMetadata.removeAll() }
+                    self.pageMetadata[key] = metadata
+                }
+            }
             self.rebuildNowPlaying()
         }
         server.start()
