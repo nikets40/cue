@@ -29,6 +29,8 @@ final class QuickTimeClient {
         case togglePlayPause
         case seek(Double)
         case skip(Double)
+        /// QuickTime calls fullscreen "presenting".
+        case toggleFullscreen
     }
 
     /// Skipped while a command is in flight so a slow AppleScript round trip
@@ -126,6 +128,15 @@ final class QuickTimeClient {
             """
         case .seek(let seconds):
             body = "set current time of d to \(max(0, Int(seconds)))"
+        case .toggleFullscreen:
+            body = """
+            activate
+            if presenting of d then
+              set presenting of d to false
+            else
+              present d
+            end if
+            """
         case .skip(let delta):
             body = """
             set target to ((current time of d) as integer) + (\(Int(delta)))

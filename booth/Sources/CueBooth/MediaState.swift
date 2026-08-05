@@ -329,6 +329,20 @@ final class MediaState: ObservableObject {
         case .activateSource:
             guard let target = command.target else { return }
             activate(sourceID: target)
+        case .toggleFullscreen:
+            toggleFullscreen()
+        }
+    }
+
+    /// Routed to whichever player owns playback: each has its own idea of
+    /// fullscreen, and none of them can be driven the same way.
+    private func toggleFullscreen() {
+        if nowPlaying.bundleIdentifier == VLCClient.bundleIdentifier {
+            Task { [weak self] in await self?.vlc.toggleFullscreen() }
+            return
+        }
+        if server.providerConnected, nowPlaying.bundleIdentifier == "com.google.Chrome" {
+            server.sendToProvider(ProviderCommand(command: .toggleFullscreen))
         }
     }
 
@@ -435,6 +449,7 @@ final class MediaState: ObservableObject {
             quickTime.perform(.seek(value))
         case .setVolume:
             return false  // system volume, not the document's
+        case .toggleFullscreen: quickTime.perform(.toggleFullscreen)
         case .requestSources, .activateSource, .requestPlaylist, .playPlaylistItem:
             return false  // global, not owned by whatever is playing
         case .nextTrack, .previousTrack, .toggleLike, .toggleDislike:

@@ -88,6 +88,33 @@ function clickPlayerSkip(direction) {
   return false;
 }
 
+/// requestFullscreen() is refused without a user gesture, so the only way in
+/// from an extension is the player's own control. Falls back to double-
+/// clicking the video, which most players treat as a fullscreen toggle.
+function toggleFullscreen() {
+  const selectors = [
+    ".ytp-fullscreen-button",                    // youtube.com
+    '[data-uia="control-fullscreen-enter"]',     // Netflix
+    '[data-uia="control-fullscreen-exit"]',
+    'button[aria-label*="full screen" i]',       // Hotstar, Prime
+    'button[aria-label*="fullscreen" i]',
+    'button[title*="full screen" i]',
+    'button[title*="fullscreen" i]',
+  ];
+  for (const selector of selectors) {
+    const el = document.querySelector(selector);
+    if (!el) continue;
+    el.click();
+    return { ok: true, how: selector };
+  }
+  const media = document.querySelector("video");
+  if (media) {
+    media.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
+    return { ok: true, how: "dblclick" };
+  }
+  return { ok: false, how: "no control found" };
+}
+
 /// Netflix ignores the system next/previous commands, so episode changes have
 /// to be driven from its own player controls.
 function clickVideoSiteSkip(direction) {
@@ -209,6 +236,9 @@ function onRuntimeMessage(message, _sender, sendResponse) {
       sendResponse({ ok: !!media });
       break;
     }
+    case "toggleFullscreen":
+      sendResponse(toggleFullscreen());
+      break;
     case "forceReport":
       window.postMessage({ source: "cue-force-report" }, "*");
       sendResponse({ ok: true });

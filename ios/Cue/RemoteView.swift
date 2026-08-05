@@ -134,6 +134,15 @@ struct RemoteView: View {
                 .foregroundStyle(.white.opacity(0.75))
             }
             Spacer()
+            if state.title != nil {
+                Button { client.send(.toggleFullscreen) } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+                .accessibilityLabel("Toggle fullscreen")
+                .padding(.trailing, 14)
+            }
             Button {
                 client.requestSources()
                 showSources = true

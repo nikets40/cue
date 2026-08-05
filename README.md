@@ -43,6 +43,7 @@ The result: your phone shows the actual show poster while Netflix plays, the rea
 - **Correct artwork, everywhere** — full-resolution album art from the page, TMDB posters for film and TV, extracted video frames for local files, and platform logos as a fallback
 - **Proper titles** — real show names and episode numbers, not "Netflix"
 - **Source picker** — see every browser tab, QuickTime document and VLC item that's open, playing or paused, and switch with one tap
+- **Fullscreen from the couch** — one tap brings the player forward and puts it fullscreen, wherever it's playing
 - **Queue browsing** — YouTube Music and YouTube playlists with artwork, plus VLC's playlist
 - **Like / dislike** on YouTube Music
 - **Lock Screen & Dynamic Island** — a Live Activity with working controls and a progress bar that keeps ticking
@@ -55,15 +56,15 @@ The result: your phone shows the actual show poster while Netflix plays, the rea
 
 ## What works where
 
-| | Play/pause | Next / prev | Seek & ±15s | Artwork | Queue |
-|---|---|---|---|---|---|
-| YouTube Music | ✅ | ✅ | ✅ | Page art | ✅ |
-| YouTube | ✅ | ✅ | ✅ | Page art | ✅ |
-| Netflix | ✅ | ✅ ¹ | ✅ | TMDB poster | — |
-| Hotstar | ✅ | — ² | ✅ | TMDB poster | — |
-| Prime Video | ✅ | ✅ ¹ | ✅ | TMDB poster | — |
-| VLC | ✅ | ✅ | ✅ | — | ✅ |
-| QuickTime | ✅ | — ³ | ✅ | Video frame | — |
+| | Play/pause | Next / prev | Seek & ±15s | Artwork | Queue | Fullscreen |
+|---|---|---|---|---|---|---|
+| YouTube Music | ✅ | ✅ | ✅ | Page art | ✅ | ✅ |
+| YouTube | ✅ | ✅ | ✅ | Page art | ✅ | ✅ |
+| Netflix | ✅ | ✅ ¹ | ✅ | TMDB poster | — | ✅ |
+| Hotstar | ✅ | — ² | ✅ | TMDB poster | — | ✅ |
+| Prime Video | ✅ | ✅ ¹ | ✅ | TMDB poster | — | ✅ |
+| VLC | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| QuickTime | ✅ | — ³ | ✅ | Video frame | — | ✅ |
 
 ¹ Clicks the player's own next-episode control.
 ² Hotstar's player has no next-episode control during playback — verified by enumerating every button it exposes.

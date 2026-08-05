@@ -40,6 +40,11 @@ final class VLCClient {
         _ = await get("/requests/status.json?command=pl_play")
     }
 
+    func toggleFullscreen() async {
+        bringToFront()  // fullscreen is pointless behind another window
+        _ = await get("/requests/status.json?command=fullscreen")
+    }
+
     /// `pl_forcepause` rather than `pl_pause`, which toggles and would start
     /// playback on an already-paused item.
     func pause() async {

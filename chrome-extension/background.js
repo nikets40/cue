@@ -189,6 +189,16 @@ async function handleCommand({ command, index, tabId }) {
     );
     return;
   }
+  if (command === "toggleFullscreen" && playingTabId != null) {
+    // Fullscreen is only visible if the tab is actually frontmost.
+    try {
+      const tab = await chrome.tabs.get(playingTabId);
+      await chrome.tabs.update(playingTabId, { active: true });
+      if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
+    } catch {
+      // Tab vanished; the sendMessage below will fail and clean up.
+    }
+  }
   if (playingTabId == null) return;
   let reply = null;
   try {

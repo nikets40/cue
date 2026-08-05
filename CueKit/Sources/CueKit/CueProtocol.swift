@@ -109,6 +109,8 @@ public struct CueCommand: Codable, Equatable, Sendable {
         case requestSources
         /// Requires `target`: a `MediaSource.id` to start playing.
         case activateSource
+        /// Put whatever is playing into fullscreen (or take it out).
+        case toggleFullscreen
     }
 
     public var action: Action
@@ -268,6 +270,10 @@ public struct ProviderCommand: Codable, Equatable, Sendable {
         /// Pause every media tab except `tabId` (nil pauses them all), so
         /// switching sources doesn't leave two things playing at once.
         case pauseOtherTabs
+        /// Click the player's own fullscreen control. The Fullscreen API
+        /// refuses programmatic calls without a user gesture, so the site's
+        /// button is the only route.
+        case toggleFullscreen
         /// Video platforms ignore the system skip commands, so their own
         /// player controls have to be clicked instead.
         case nextTrack
