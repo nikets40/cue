@@ -40,6 +40,8 @@ struct SourcesSheet: View {
             .toolbarBackground(.hidden, for: .navigationBar)
         }
         .preferredColorScheme(.dark)
+        // Refresh whenever the sheet opens: tabs come and go while it's closed.
+        .onAppear { client.requestSources() }
     }
 
     private func row(_ source: MediaSource) -> some View {

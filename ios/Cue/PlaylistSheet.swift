@@ -116,5 +116,6 @@ struct PlaylistSheet: View {
             .toolbarBackground(.hidden, for: .navigationBar)
         }
         .preferredColorScheme(.dark)
+        .onAppear { client.requestPlaylist() }
     }
 }

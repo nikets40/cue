@@ -34,6 +34,7 @@ struct DashboardView: View {
     @StateObject private var launchAtLogin = LaunchAtLogin()
     @State private var seekPreview: Double?
     @State private var showRawEvent = false
+    @State private var revealPairingCode = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -51,12 +52,23 @@ struct DashboardView: View {
 
     private var footer: some View {
         HStack {
-            Label {
-                Text("Pairing code: ").foregroundStyle(.secondary)
-                    + Text(media.pairingToken).font(.body.monospacedDigit().bold())
-            } icon: {
-                Image(systemName: "key.fill").foregroundStyle(.secondary)
+            // Hidden by default: it's the credential that guards the socket,
+            // and this window ends up in screenshots and screen shares.
+            Button {
+                revealPairingCode.toggle()
+            } label: {
+                Label {
+                    Text("Pairing code: ").foregroundStyle(.secondary)
+                        + Text(revealPairingCode ? media.pairingToken : "••••••")
+                            .font(.body.monospacedDigit().bold())
+                    Text(revealPairingCode ? " (hide)" : " (show)")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                } icon: {
+                    Image(systemName: "key.fill").foregroundStyle(.secondary)
+                }
             }
+            .buttonStyle(.plain)
             Spacer()
             Toggle("Launch at login", isOn: Binding(
                 get: { launchAtLogin.enabled },
