@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { CueBadge, CueMark } from "@/components/Logo";
 import { PhoneMock } from "@/components/PhoneMock";
 import { Reveal } from "@/components/Reveal";
@@ -42,6 +43,9 @@ function Nav() {
         <div className="hidden items-center gap-8 text-[14px] font-medium text-ink-2 sm:flex">
           <a href="#how" className="transition-colors hover:text-ink">
             How it works
+          </a>
+          <a href="#screens" className="transition-colors hover:text-ink">
+            Screenshots
           </a>
           <a href="#features" className="transition-colors hover:text-ink">
             Features
@@ -254,34 +258,34 @@ function HowItWorks() {
 
 const FEATURES = [
   {
+    title: "Every source, one list",
+    icon: <IconIsland />,
+    body: "macOS only ever exposes the single thing playing right now. Cue keeps its own list — every Chrome tab holding media, every open QuickTime document, whatever VLC has loaded — playing or paused. Tap one and it starts, everything else goes quiet.",
+  },
+  {
+    title: "Artwork that's actually right",
+    icon: <IconArtwork />,
+    body: "Full-resolution covers read straight from the page, real show and film posters from TMDB, and a frame pulled out of local video files. Netflix reports its artwork as a 256 px tile and its title as the literal word \"Netflix\"; Cue goes around both.",
+  },
+  {
     title: "Real system volume",
     icon: <IconVolume />,
     body: "Cue talks to CoreAudio directly. The first attempt used osascript, which cost about 200 ms per call and queued up hopelessly under a slider drag. Now the slider feels like it's wired to the speaker, because it more or less is.",
   },
   {
-    title: "Live Activity + Dynamic Island",
-    icon: <IconIsland />,
-    body: "Transport controls on the lock screen, an animated equalizer while music plays, and a progress bar that keeps ticking while the app is backgrounded. No push entitlement required — it works on a free Apple ID.",
+    title: "Queues, likes, episodes",
+    icon: <IconSkip15 />,
+    body: "Browse what's up next in YouTube Music, a YouTube mix, or VLC's playlist, with artwork and artists, and jump straight to a track. Thumb a song up or down. Skip to the next Netflix episode — by clicking the player's own control, since no media key can do it.",
   },
   {
-    title: "Album art worth looking at",
-    icon: <IconArtwork />,
-    body: "Chrome hands over small, muddy artwork. Booth quietly upgrades music covers to 600 px via the iTunes Search API and caches them per track. Netflix and friends get proper brand cards instead of a gray square.",
+    title: "Live Activity + Dynamic Island",
+    icon: <IconLock />,
+    body: "Transport controls on the lock screen and a progress bar that keeps ticking while the app is backgrounded. No push entitlement required — it works on a free Apple ID.",
   },
   {
     title: "Paired, not exposed",
-    icon: <IconLock />,
-    body: "The control port stays silent until a client sends the right six-digit code. No banner, no handshake, nothing. A wrong code gets a rejection and a closed connection. Your roommate's laptop can't pause your movie.",
-  },
-  {
-    title: "Reconnects like it never left",
     icon: <IconReconnect />,
-    body: "Dropped Wi-Fi, a restarted Booth, a backgrounded app: the phone retries every two seconds and again the moment it returns to the foreground. Walk to the kitchen and back; the scrubber is still ticking.",
-  },
-  {
-    title: "±15 seconds that actually works",
-    icon: <IconSkip15 />,
-    body: "Most sites ignore MediaRemote's native skip commands but honor plain seek. So Cue's skip buttons are implemented as relative seeks: current position, plus or minus fifteen. Small hack, works everywhere.",
+    body: "The control port stays silent until a client sends the right six-digit code. A wrong code gets a rejection and a closed connection. Nothing leaves your network, and there's no server to trust because there is no server.",
   },
 ];
 
@@ -313,6 +317,93 @@ function Features() {
   );
 }
 
+/* ---------- Screenshots ---------- */
+
+const SHOTS = [
+  {
+    src: "/screenshots/player.png",
+    alt: "Cue player screen showing artwork, scrubber, transport controls and a volume slider",
+    caption: "The remote",
+    note: "Artwork takes its own shape — square for albums, 2:3 for posters, wide for video thumbnails.",
+  },
+  {
+    src: "/screenshots/sources.png",
+    alt: "Source picker listing Chrome tabs, a QuickTime document and VLC",
+    caption: "Everything that's open",
+    note: "Browser tabs, QuickTime documents and VLC in one list, playing or paused.",
+  },
+  {
+    src: "/screenshots/queue.png",
+    alt: "Up Next queue showing tracks with artwork, artist and duration",
+    caption: "Up next",
+    note: "The real queue from YouTube Music or a YouTube mix, with the current track marked.",
+  },
+];
+
+function Screenshots() {
+  return (
+    <section id="screens" className="mx-auto max-w-6xl scroll-mt-24 px-5 pt-28 sm:px-8 sm:pt-36">
+      <Reveal>
+        <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-rose">
+          Screenshots
+        </p>
+        <h2 className="mt-3 max-w-2xl text-[32px] font-extrabold leading-tight tracking-tight sm:text-[40px]">
+          Not mockups. The actual app.
+        </h2>
+      </Reveal>
+      <div className="mt-14 grid gap-8 sm:grid-cols-3">
+        {SHOTS.map((shot, i) => (
+          <Reveal key={shot.src} delay={i * 100}>
+            <figure>
+              <div className="overflow-hidden rounded-[26px] border border-white/[0.09] bg-surface/60 shadow-2xl shadow-black/40">
+                <Image
+                  src={shot.src}
+                  alt={shot.alt}
+                  width={414}
+                  height={900}
+                  className="h-auto w-full"
+                />
+              </div>
+              <figcaption className="mt-4">
+                <span className="text-[15px] font-bold">{shot.caption}</span>
+                <span className="mt-1 block text-[13.5px] leading-relaxed text-ink-3">
+                  {shot.note}
+                </span>
+              </figcaption>
+            </figure>
+          </Reveal>
+        ))}
+      </div>
+
+      <Reveal delay={120}>
+        <div className="mt-16 grid items-center gap-10 rounded-3xl border border-white/[0.07] bg-surface/40 p-8 sm:p-10 lg:grid-cols-[1fr_1.1fr]">
+          <div>
+            <h3 className="text-[22px] font-extrabold tracking-tight">
+              And a Mac half you barely notice
+            </h3>
+            <p className="mt-4 text-[14.5px] leading-relaxed text-ink-2">
+              Cue Booth lives in the menu bar. Open the dashboard to see exactly
+              what it&apos;s reading — now playing, connected clients, whether the
+              browser extension is attached — plus the pairing code and a
+              launch-at-login switch. It doubles as the debugging surface: the raw
+              adapter payload is one click away.
+            </p>
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-white/[0.09]">
+            <Image
+              src="/screenshots/booth.png"
+              alt="Cue Booth dashboard on macOS showing now playing, transport controls, connection status and pairing code"
+              width={1104}
+              height={1110}
+              className="h-auto w-full"
+            />
+          </div>
+        </div>
+      </Reveal>
+    </section>
+  );
+}
+
 /* ---------- Install ---------- */
 
 function Install() {
@@ -330,14 +421,16 @@ function Install() {
           </h2>
           <p className="mt-5 text-[15.5px] leading-relaxed text-ink-2">
             There&apos;s no App Store listing and no installer. You clone the
-            repo, run the Mac half with Swift Package Manager, and sideload the
-            iPhone half with Xcode. A free Apple ID is enough; the app
-            re-signs every seven days, which is annoying exactly once a week
-            and free the rest of the time.
+            repo, build the Mac half into a real menu bar app, load a small
+            Chrome extension, and sideload the iPhone half with Xcode. A free
+            Apple ID is enough; the app re-signs every seven days, which is
+            annoying exactly once a week and free the rest of the time.
           </p>
           <p className="mt-4 text-[14px] text-ink-3">
-            You&apos;ll need macOS with Xcode, Homebrew, and an iPhone that
-            shares Wi-Fi with the Mac.
+            You&apos;ll need macOS 14+, Xcode, Homebrew, and an iPhone that
+            shares Wi-Fi with the Mac. The extension is optional but does the
+            heavy lifting for browser playback. VLC and QuickTime need no setup
+            beyond a one-time permission prompt.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <div className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-surface/60 py-3 pl-3 pr-5">
@@ -378,17 +471,25 @@ function Install() {
                 {"\n"}
                 <span className="text-go">$</span> brew install media-control
                 {"\n\n"}
-                <span className="text-ink-3"># Mac: Cue Booth, the menu bar server</span>
+                <span className="text-ink-3"># Mac: build Cue Booth.app and install it</span>
                 {"\n"}
-                <span className="text-go">$</span> git clone {GITHUB}.git
+                <span className="text-go">$</span> git clone {GITHUB}.git && cd cue
                 {"\n"}
-                <span className="text-go">$</span> cd cue/booth && swift run
+                <span className="text-go">$</span> tools/make-app.sh --install
+                {"\n\n"}
+                <span className="text-ink-3"># Chrome: load chrome-extension/ unpacked</span>
+                {"\n"}
+                <span className="text-ink-3">#   chrome://extensions → Developer mode</span>
                 {"\n\n"}
                 <span className="text-ink-3"># iPhone: generate the project, then run from Xcode</span>
                 {"\n"}
-                <span className="text-go">$</span> cd ../ios && xcodegen generate
+                <span className="text-go">$</span> cd ios && xcodegen generate
                 {"\n"}
                 <span className="text-go">$</span> open Cue.xcodeproj
+                {"\n\n"}
+                <span className="text-ink-3"># optional: posters for film and TV</span>
+                {"\n"}
+                <span className="text-go">$</span> tools/set-tmdb-key.sh &lt;key&gt;
               </code>
             </pre>
           </div>
@@ -419,7 +520,12 @@ const FAQ = [
   {
     q: "What doesn't work?",
     icon: <IconBolt />,
-    a: "\"Next episode\" on Netflix — that's a UI button, not a media-key concept, so no remote can press it through this pipeline. Play, pause, seek, and volume work everywhere. Also honest: keeping the connection alive in the background costs some battery while you're connected.",
+    a: "Only Chrome is supported for browser playback — Safari would need its own extension. Hotstar has no next-episode control during playback, so nothing can press one (Netflix and Prime do, and Cue clicks them). Quick Look previews can't be controlled at all: they never register with Now Playing. And keeping the connection alive in the background costs some battery while you're connected.",
+  },
+  {
+    q: "Why a browser extension?",
+    icon: <IconTerminal />,
+    a: "Because macOS sees browser video through a keyhole. Netflix publishes no media metadata and reports its title as the literal word \"Netflix\"; queue rows keep their data in a JavaScript property the page never renders. The extension reads what the page actually knows and hands it over — real titles, full-size artwork, queues, likes. Everything still works without it, just with less to look at.",
   },
 ];
 
@@ -511,6 +617,7 @@ export default function Home() {
         <Hero />
         <Services />
         <HowItWorks />
+        <Screenshots />
         <Features />
         <Install />
         <FinePrint />

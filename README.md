@@ -1,6 +1,20 @@
-# Cue
+<p align="center">
+  <img src="docs/logo.png" width="120" alt="Cue app icon">
+</p>
 
-**Control everything playing on your Mac from your iPhone — Netflix, YouTube Music, Prime, Hotstar, VLC, QuickTime — from one remote.**
+<h1 align="center">Cue</h1>
+
+<p align="center">
+  <strong>Control everything playing on your Mac from your iPhone.</strong><br>
+  Netflix, YouTube Music, Prime, Hotstar, VLC, QuickTime — one remote.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/macOS-14%2B-1d1d1f" alt="macOS 14+">
+  <img src="https://img.shields.io/badge/iOS-17%2B-1d1d1f" alt="iOS 17+">
+  <img src="https://img.shields.io/badge/Swift-6.0-f05138" alt="Swift 6">
+  <img src="https://img.shields.io/badge/local--only-no%20cloud-3fa46a" alt="Local only">
+</p>
 
 Cue is a pair of apps: **Cue Booth**, a macOS menu bar app that watches and drives whatever is playing, and **Cue**, an iPhone app that talks to it over your local network. No cloud, no account, no data leaves your machine.
 
