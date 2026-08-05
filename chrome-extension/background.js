@@ -275,10 +275,36 @@ async function refreshTabStates() {
   await new Promise((resolve) => setTimeout(resolve, 1400));
 }
 
-/** Fullscreens the browser window holding the playing tab, and asks the page
- *  for its widest layout. The window API is the only route that works: the
- *  page-level Fullscreen API requires user activation an extension can't
- *  synthesise. Toggles back to a normal window on a second call. */
+/** Real video fullscreen needs a *trusted* input event: requestFullscreen()
+ *  refuses without user activation, and neither a synthetic click on the
+ *  player's own button nor a synthetic keypress grants it. The debugger API is
+ *  the only way an extension can produce trusted input, so this presses "f" —
+ *  the fullscreen shortcut Netflix, YouTube, Prime and Hotstar all share.
+ *  Attached only for the keystroke, so the "being debugged" banner is brief. */
+async function pressKeyTrusted(tabId, key) {
+  const target = { tabId };
+  await chrome.debugger.attach(target, "1.3");
+  try {
+    const base = {
+      key,
+      code: `Key${key.toUpperCase()}`,
+      windowsVirtualKeyCode: key.toUpperCase().charCodeAt(0),
+      nativeVirtualKeyCode: key.toUpperCase().charCodeAt(0),
+    };
+    await chrome.debugger.sendCommand(target, "Input.dispatchKeyEvent", {
+      type: "keyDown",
+      text: key,
+      ...base,
+    });
+    await chrome.debugger.sendCommand(target, "Input.dispatchKeyEvent", {
+      type: "keyUp",
+      ...base,
+    });
+  } finally {
+    await chrome.debugger.detach(target).catch(() => {});
+  }
+}
+
 async function toggleFullscreen() {
   if (playingTabId == null) {
     report("fullscreen: no playing tab");
@@ -287,18 +313,25 @@ async function toggleFullscreen() {
   try {
     const tab = await chrome.tabs.get(playingTabId);
     await chrome.tabs.update(playingTabId, { active: true });
-    const window = await chrome.windows.get(tab.windowId);
-    const entering = window.state !== "fullscreen";
-    await chrome.windows.update(tab.windowId, {
-      state: entering ? "fullscreen" : "normal",
-      focused: true,
-    });
-    const reply = await chrome.tabs
-      .sendMessage(playingTabId, { type: "cueCommand", command: "expandPlayer" })
-      .catch(() => null);
-    report(`fullscreen: window ${entering ? "on" : "off"}, page ${reply ? reply.how : "no reply"}`);
+    if (tab.windowId != null) {
+      await chrome.windows.update(tab.windowId, { focused: true });
+    }
+    await pressKeyTrusted(playingTabId, "f");
+    report("fullscreen: sent trusted f");
   } catch (error) {
-    report(`fullscreen failed: ${(error && error.message) || error}`);
+    // Falling back to a fullscreen window still fills the screen, just with
+    // the browser chrome showing.
+    report(`fullscreen: trusted key failed (${(error && error.message) || error}), using window`);
+    try {
+      const tab = await chrome.tabs.get(playingTabId);
+      const window = await chrome.windows.get(tab.windowId);
+      await chrome.windows.update(tab.windowId, {
+        state: window.state === "fullscreen" ? "normal" : "fullscreen",
+        focused: true,
+      });
+    } catch {
+      // Nothing further to try.
+    }
   }
 }
 
