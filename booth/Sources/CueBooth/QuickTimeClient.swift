@@ -61,7 +61,14 @@ final class QuickTimeClient {
         case .pause:
             body = "pause d"
         case .togglePlayPause:
-            body = "if playing of d then pause d else play d"
+            // AppleScript has no single-line if/else form; it must be a block.
+            body = """
+            if playing of d then
+              pause d
+            else
+              play d
+            end if
+            """
         case .seek(let seconds):
             body = "set current time of d to \(max(0, Int(seconds)))"
         case .skip(let delta):
