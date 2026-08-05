@@ -43,7 +43,7 @@ The result: your phone shows the actual show poster while Netflix plays, the rea
 - **Correct artwork, everywhere** — full-resolution album art from the page, TMDB posters for film and TV, extracted video frames for local files, and platform logos as a fallback
 - **Proper titles** — real show names and episode numbers, not "Netflix"
 - **Source picker** — see every browser tab, QuickTime document and VLC item that's open, playing or paused, and switch with one tap
-- **Fullscreen from the couch** — one tap brings the player forward and puts it fullscreen, wherever it's playing
+- **Fullscreen from the couch** — one tap brings the player forward and fullscreens it (a real video fullscreen for QuickTime and VLC; a fullscreen browser window for Chrome, see below)
 - **Queue browsing** — YouTube Music and YouTube playlists with artwork, plus VLC's playlist
 - **Like / dislike** on YouTube Music
 - **Lock Screen & Dynamic Island** — a Live Activity with working controls and a progress bar that keeps ticking
@@ -232,6 +232,7 @@ The free-account signature expired (7 days). Re-run the install command in step 
 ## Known limitations
 
 - Only Chrome is supported for browser playback — Safari would need its own extension.
+- **Fullscreen in the browser fullscreens the window, not the video.** Chrome grants true video fullscreen only to trusted user input: `requestFullscreen()` fails with a permissions error otherwise, and clicking the player's own fullscreen button from a script does nothing either. The one API that can synthesise trusted input (`chrome.debugger`) was tried and rejected — it needs an alarming permission, shows a "being debugged" banner, collides with any other debugger client, and left tabs rendering blank. QuickTime and VLC have real fullscreen commands and use them.
 - The list of sources covers Chrome, QuickTime and VLC. macOS exposes no way to enumerate every app with paused media, so anything else is invisible unless integrated individually.
 - Quick Look previews (space-to-preview in Finder) can't be controlled: they never register with Now Playing and expose no scripting interface.
 - Live Activity content updates while the phone is locked depend on the app staying alive; buttons always work.
