@@ -48,6 +48,10 @@ final class MediaState: ObservableObject {
     private let artworkUpgrader = ArtworkUpgrader()
     private let serviceDetector = ServiceDetector()
     private lazy var vlc = VLCClient(defaults: Self.defaults)
+    private let quickTime = QuickTimeClient()
+    /// QuickTime is invisible to MediaRemote, so it's polled separately and
+    /// only stands in when nothing else claims playback.
+    @Published private var quickTimeState: QuickTimeClient.State?
     private lazy var posterLookup = PosterLookup(defaults: Self.defaults)
     private var poster: PosterLookup.Poster?
     private var currentTrackKey = ""
@@ -108,7 +112,10 @@ final class MediaState: ObservableObject {
         startStream()
         pollVolume()
         volumeTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.pollVolume() }
+            Task { @MainActor in
+                self?.pollVolume()
+                await self?.pollQuickTime()
+            }
         }
 
         if let stored = Self.defaults.string(forKey: "pairingToken"), !stored.isEmpty {
@@ -158,9 +165,9 @@ final class MediaState: ObservableObject {
         // Throttle, not debounce: debounce only emits after a lull, and with
         // both the media stream and the Chrome extension pushing updates there
         // may never be one — which silently starved every broadcast.
-        Publishers.CombineLatest3(
+        Publishers.CombineLatest4(
             $nowPlaying.removeDuplicates(), $volume.removeDuplicates(),
-            $currentService.removeDuplicates())
+            $currentService.removeDuplicates(), $quickTimeState.removeDuplicates())
             .throttle(for: .milliseconds(120), scheduler: DispatchQueue.main, latest: true)
             .sink { [weak self] _ in
                 guard let self else { return }
@@ -169,8 +176,36 @@ final class MediaState: ObservableObject {
             .store(in: &cancellables)
     }
 
+    /// True while QuickTime is the only thing playing, so commands and state
+    /// should come from it rather than MediaRemote.
+    private var usingQuickTime: Bool {
+        nowPlaying.isEmpty && quickTimeState != nil
+    }
+
+    private func pollQuickTime() async {
+        // Only worth asking when nothing else claims playback; each call is an
+        // osascript round trip.
+        guard nowPlaying.isEmpty || quickTimeState != nil else {
+            if quickTimeState != nil { quickTimeState = nil }
+            return
+        }
+        quickTimeState = await quickTime.fetchState()
+    }
+
     func snapshot() -> NowPlayingState {
-        NowPlayingState(
+        if let state = quickTimeState, usingQuickTime {
+            return NowPlayingState(
+                title: state.title,
+                artist: "QuickTime Player",
+                sourceApp: QuickTimeClient.bundleIdentifier,
+                playing: state.playing,
+                duration: state.duration,
+                elapsedTime: state.position,
+                timestamp: Date(),
+                playbackRate: state.playing ? 1 : 0,
+                volume: volume)
+        }
+        return NowPlayingState(
             title: nowPlaying.title,
             artist: nowPlaying.artist,
             album: nowPlaying.album,
@@ -192,12 +227,21 @@ final class MediaState: ObservableObject {
     }
 
     func handle(_ command: CueCommand) {
+        if usingQuickTime, handleWithQuickTime(command) { return }
         switch command.action {
         case .play: send("play")
         case .pause: send("pause")
         case .togglePlayPause: send("toggle-play-pause")
-        case .nextTrack: send("next-track")
-        case .previousTrack: send("previous-track")
+        case .nextTrack:
+            // Netflix ignores the system next command; its player has to be
+            // clicked instead.
+            if useProviderQueue, isVideoService,
+               server.sendToProvider(ProviderCommand(command: .nextTrack)) { return }
+            send("next-track")
+        case .previousTrack:
+            if useProviderQueue, isVideoService,
+               server.sendToProvider(ProviderCommand(command: .previousTrack)) { return }
+            send("previous-track")
         case .skipForward15: skip(by: 15)
         case .skipBack15: skip(by: -15)
         case .seek: if let value = command.value { seek(to: value) }
@@ -230,6 +274,35 @@ final class MediaState: ObservableObject {
     /// only while the browser owns playback.
     private var useProviderQueue: Bool {
         server.providerConnected && nowPlaying.bundleIdentifier == "com.google.Chrome"
+    }
+
+    private var isVideoService: Bool {
+        currentService.map(PosterLookup.videoServices.contains) ?? false
+    }
+
+    /// Returns false for anything QuickTime has no concept of, letting the
+    /// caller fall through to the normal path.
+    private func handleWithQuickTime(_ command: CueCommand) -> Bool {
+        switch command.action {
+        case .play: quickTime.perform(.play)
+        case .pause: quickTime.perform(.pause)
+        case .togglePlayPause: quickTime.perform(.togglePlayPause)
+        case .skipForward15: quickTime.perform(.skip(15))
+        case .skipBack15: quickTime.perform(.skip(-15))
+        case .seek:
+            guard let value = command.value else { return true }
+            quickTime.perform(.seek(value))
+        case .setVolume:
+            return false  // system volume, not the document's
+        default:
+            return true   // next/previous/like/playlist mean nothing here
+        }
+        // Reflect the change immediately rather than waiting for the next poll.
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            await self?.pollQuickTime()
+        }
+        return true
     }
 
     // MARK: - Now-playing stream

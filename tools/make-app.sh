@@ -40,7 +40,7 @@ cat > "$CONTENTS/Info.plist" <<PLIST
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSAppleEventsUsageDescription</key>
-  <string>Cue Booth asks Chrome which site is playing so your phone can show the right artwork.</string>
+  <string>Cue Booth controls QuickTime Player playback from your phone, and asks Chrome which site is playing so the right artwork is shown.</string>
 </dict>
 </plist>
 PLIST

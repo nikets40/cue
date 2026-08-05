@@ -205,6 +205,10 @@ public struct ProviderCommand: Codable, Equatable, Sendable {
         case requestQueue
         /// Uses `index` into the queue the extension last reported.
         case playQueueItem
+        /// Video platforms ignore the system skip commands, so their own
+        /// player controls have to be clicked instead.
+        case nextTrack
+        case previousTrack
     }
 
     public var command: Action

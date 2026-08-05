@@ -61,7 +61,32 @@ function clickLike(which) {
 }
 
 function queueItems() {
-  return Array.from(document.querySelectorAll("ytmusic-player-queue-item"));
+  const music = document.querySelectorAll("ytmusic-player-queue-item");
+  if (music.length) return Array.from(music);
+  // youtube.com mixes and playlists use a different row element.
+  return Array.from(document.querySelectorAll("ytd-playlist-panel-video-renderer"));
+}
+
+/// Netflix ignores the system next/previous commands, so episode changes have
+/// to be driven from its own player controls.
+function clickVideoSiteSkip(direction) {
+  const selectors = direction === "next"
+    ? ['[data-uia="control-next"]',
+       '[data-uia="next-episode-seamless-button"]',
+       '[data-uia="next-episode-seamless-button-draining"]',
+       'button[aria-label*="Next episode" i]',
+       'button[title*="Next episode" i]']
+    : ['[data-uia="control-previous"]',
+       'button[aria-label*="Previous episode" i]',
+       'button[title*="Previous episode" i]'];
+  for (const selector of selectors) {
+    const button = document.querySelector(selector);
+    if (button) {
+      button.click();
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Queue contents live on a JS property only the MAIN world can read, so
@@ -91,7 +116,10 @@ function playQueueIndex(index) {
   const item = items[index];
   if (!item) return false;
   const target =
-    item.querySelector("#play-button") || item.querySelector(".song-title") || item;
+    item.querySelector("#play-button") ||      // YouTube Music
+    item.querySelector("a#wc-endpoint") ||     // youtube.com playlist panel
+    item.querySelector(".song-title") ||
+    item;
   target.click();
   return true;
 }
@@ -111,6 +139,12 @@ function onRuntimeMessage(message, _sender, sendResponse) {
       break;
     case "playQueueItem":
       sendResponse({ ok: playQueueIndex(index) });
+      break;
+    case "nextTrack":
+      sendResponse({ ok: clickVideoSiteSkip("next") });
+      break;
+    case "previousTrack":
+      sendResponse({ ok: clickVideoSiteSkip("previous") });
       break;
     default:
       sendResponse({ ok: false });

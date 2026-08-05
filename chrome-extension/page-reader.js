@@ -154,23 +154,41 @@
     return parts.reduce((total, part) => total * 60 + part, 0);
   }
 
-  function readQueue() {
-    return Array.from(document.querySelectorAll("ytmusic-player-queue-item")).map(
-      (item, index) => {
-        const data = item.data || {};
-        // `data.selected` lands on several rows at once; the play button's
-        // state is the only reliable marker of the row actually playing.
+  /// YouTube Music and YouTube proper use different row elements but the same
+  /// underlying data shape. They differ in how the playing row is marked:
+  /// on Music `data.selected` lands on several rows at once so the play
+  /// button's state is the only reliable signal, while on YouTube the
+  /// `selected` attribute marks exactly one.
+  function queueRows() {
+    const musicRows = Array.from(document.querySelectorAll("ytmusic-player-queue-item"));
+    if (musicRows.length) {
+      return musicRows.map((item) => {
         const state = item.getAttribute("play-button-state");
-        return {
-          id: index,
-          title: runsText(data.title) || "Untitled",
-          subtitle: runsText(data.shortBylineText) || runsText(data.longBylineText),
-          duration: parseDuration(runsText(data.lengthText)),
-          isCurrent: state === "playing" || state === "paused",
-          artworkURL: rowThumbnail(data, 120),
-        };
-      }
+        return { item, isCurrent: state === "playing" || state === "paused" };
+      });
+    }
+    return Array.from(document.querySelectorAll("ytd-playlist-panel-video-renderer")).map(
+      (item) => ({ item, isCurrent: item.hasAttribute("selected") })
     );
+  }
+
+  function textOf(node) {
+    if (!node) return null;
+    return runsText(node) || node.simpleText || null;
+  }
+
+  function readQueue() {
+    return queueRows().map(({ item, isCurrent }, index) => {
+      const data = item.data || {};
+      return {
+        id: index,
+        title: textOf(data.title) || "Untitled",
+        subtitle: textOf(data.shortBylineText) || textOf(data.longBylineText),
+        duration: parseDuration(textOf(data.lengthText)),
+        isCurrent,
+        artworkURL: rowThumbnail(data, 120),
+      };
+    });
   }
 
   function onQueueRequest(event) {
