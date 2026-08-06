@@ -1,36 +1,49 @@
 import type { Metadata } from "next";
-import { Manrope, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
+import "./v3.css";
 
-const manrope = Manrope({
-  variable: "--font-manrope",
+const fraunces = Fraunces({
+  variable: "--font-display",
+  subsets: ["latin"],
+  axes: ["SOFT", "WONK", "opsz"],
+});
+
+const inter = Inter({
+  variable: "--font-ui",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-mono-v3",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
-  title: "Cue — an open-source iPhone remote for your Mac's media",
+  title: "Cue — the remote your Mac never had",
   description:
-    "Cue turns your iPhone into a remote for whatever your Mac is playing: YouTube Music, Netflix, VLC, anything in the Now Playing pipeline. Two apps, your Wi-Fi, no cloud.",
+    "Cue turns your iPhone and Apple Watch into a real remote for everything playing on your Mac — Netflix, YouTube Music, Prime, Hotstar, VLC, QuickTime, any tab. Real posters, real titles, over your own Wi-Fi. No cloud, no account. Open source, MIT.",
   openGraph: {
-    title: "Cue — an open-source iPhone remote for your Mac's media",
+    title: "Cue — the remote your Mac never had",
     description:
-      "Control whatever your Mac is playing from your iPhone. Bonjour + WebSocket on your LAN, no accounts, no cloud. MIT licensed.",
+      "Control everything playing on your Mac from your iPhone. Real artwork, real titles, real fullscreen — over your own Wi-Fi. No cloud, no account. MIT licensed.",
     type: "website",
+    images: ["/og.png"],
   },
 };
 
+// Sets the theme attribute before first paint so a stored choice never flashes.
+const themeInit = `(function(){try{var t=localStorage.getItem("cue-theme");if(t==="dark"||t==="light"){document.documentElement.setAttribute("data-cue-theme",t)}}catch(e){}})();`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${manrope.variable} ${geistMono.variable} antialiased`}
-    >
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`cue-v3 ${fraunces.variable} ${inter.variable} ${plexMono.variable}`}
+      >
+        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+        {children}
+      </body>
     </html>
   );
 }
