@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cue — OG card</title>
+<!-- Renders site/public/og.png. Regenerate with:
+     "Google Chrome" ‑-headless ‑-screenshot=og.png ‑-window-size=1200,630 file://.../design/og-card.html -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,620&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    position: relative;
+    background: #f8f6f2;
+    font-family: "Inter", system-ui, sans-serif;
+    color: #5c544a;
+  }
+  /* ambient sunset light, top right */
+  .orb {
+    position: absolute;
+    width: 900px; height: 700px;
+    right: -220px; top: -260px;
+    background:
+      radial-gradient(55% 55% at 40% 40%, rgba(244, 87, 46, 0.16), transparent 70%),
+      radial-gradient(50% 50% at 70% 65%, rgba(124, 58, 237, 0.14), transparent 70%);
+    filter: blur(30px);
+  }
+  .left {
+    position: absolute;
+    left: 72px; top: 0; bottom: 0;
+    width: 620px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 30px;
+    z-index: 2;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand img { width: 46px; height: 46px; border-radius: 12px; }
+  .brand span {
+    font-family: "Fraunces", serif; font-weight: 620;
+    font-size: 32px; letter-spacing: -0.01em; color: #201c17;
+  }
+  h1 {
+    font-family: "Fraunces", serif;
+    font-weight: 620;
+    font-size: 76px;
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    color: #201c17;
+  }
+  .sub {
+    font-size: 24px;
+    line-height: 1.5;
+    max-width: 540px;
+  }
+  .chips { display: flex; gap: 12px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 42px; padding: 0 18px;
+    background: #fff; border-radius: 999px;
+    box-shadow: inset 0 0 0 1px rgba(28,23,18,0.06), 0 1px 3px rgba(28,23,18,0.07);
+    font-size: 15.5px; font-weight: 500; color: #5c544a;
+    white-space: nowrap;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 4px; background: #2e9e6b; }
+
+  /* ---- phone ---- */
+  .phone {
+    position: absolute;
+    right: 96px; top: 64px;
+    width: 300px; height: 630px;
+    border-radius: 48px;
+    padding: 9px;
+    background: linear-gradient(155deg, #3a3531, #1c1916);
+    box-shadow: 0 30px 70px rgba(28,23,18,0.28), inset 0 0 0 1.5px rgba(255,255,255,0.09);
+    z-index: 1;
+  }
+  .screen {
+    width: 100%; height: 100%;
+    border-radius: 39px;
+    background: radial-gradient(120% 90% at 50% 0%, #262138 0%, #17151f 52%, #100f15 100%);
+    overflow: hidden;
+    color: #f2ede4;
+    padding: 24px 24px 0;
+  }
+  .conn {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    margin-top: 14px;
+    font-size: 12px; font-weight: 600; color: rgba(242,237,228,0.62);
+  }
+  .conn .dot { width: 7px; height: 7px; background: rgb(110,232,161); }
+  .art {
+    margin-top: 20px;
+    width: 100%; aspect-ratio: 1;
+    border-radius: 16px;
+    position: relative;
+    background: linear-gradient(140deg, #f7941e 0%, #ef5f38 30%, #d9327a 62%, #5b2bb8 100%);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    overflow: hidden;
+  }
+  .art .sheen { position: absolute; inset: 0;
+    background: radial-gradient(58% 58% at 68% 30%, rgba(255,236,200,0.55), transparent 65%); }
+  .art .ring { position: absolute; left: 12%; bottom: 14%; width: 44%; aspect-ratio: 1;
+    border-radius: 50%; border: 2.5px solid rgba(255,248,238,0.5); }
+  .art .hole { position: absolute; left: 26%; bottom: 28%; width: 16%; aspect-ratio: 1;
+    border-radius: 50%; background: rgba(20,12,26,0.55); }
+  .title { margin-top: 18px; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; color: #f6f2ea; }
+  .artist { margin-top: 3px; font-size: 13px; color: rgba(242,237,228,0.55); }
+  .track { margin-top: 16px; height: 4.5px; border-radius: 3px;
+    background: rgba(242,237,228,0.16); position: relative; }
+  .track .fill { position: absolute; inset: 0 auto 0 0; width: 34%;
+    border-radius: 3px; background: linear-gradient(90deg, #f7941e, #e0447c); }
+  .times { display: flex; justify-content: space-between; margin-top: 7px;
+    font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: rgba(242,237,228,0.45); }
+  .transport { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 12px; }
+  .play {
+    width: 58px; height: 58px; border-radius: 30px; background: #f6f2ea;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+
+  /* ---- watch, overlapping the phone's lower left ---- */
+  .watch {
+    position: absolute;
+    right: 372px; top: 412px;
+    width: 168px; height: 202px;
+    border-radius: 46px;
+    padding: 9px;
+    background: linear-gradient(155deg, #3a3531, #1c1916);
+    box-shadow: 0 24px 56px rgba(28,23,18,0.34), inset 0 0 0 1.5px rgba(255,255,255,0.09);
+    z-index: 3;
+  }
+  .watch .crown { position: absolute; right: -6px; top: 52px; width: 8px; height: 28px;
+    border-radius: 4px; background: linear-gradient(90deg, #454039, #211e19); }
+  .watch .side { position: absolute; right: -4px; top: 92px; width: 5px; height: 38px;
+    border-radius: 3px; background: linear-gradient(90deg, #3b3630, #1e1b16); }
+  .wscreen {
+    width: 100%; height: 100%;
+    border-radius: 38px;
+    background: radial-gradient(130% 100% at 50% 0%, #211d2e 0%, #131118 60%, #0b0a0e 100%);
+    padding: 20px 16px;
+    display: flex; flex-direction: column; justify-content: center;
+    color: #f2ede4;
+  }
+  .wrow { display: flex; align-items: center; gap: 8px; }
+  .wart { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+    background: linear-gradient(140deg, #f7941e, #d9327a 70%, #5b2bb8); }
+  .wtitle { font-size: 11.5px; font-weight: 600; color: #f6f2ea;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wartist { font-size: 9.5px; color: rgba(242,237,228,0.55); }
+  .wtrack { margin-top: 10px; height: 2.5px; border-radius: 2px; background: rgba(242,237,228,0.16); position: relative; }
+  .wtrack .fill { position: absolute; inset: 0 auto 0 0; width: 34%;
+    border-radius: 2px; background: linear-gradient(90deg, #f7941e, #e0447c); }
+  .wtransport { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 11px; }
+  .wplay { width: 32px; height: 32px; border-radius: 17px; background: rgba(242,237,228,0.16);
+    display: flex; align-items: center; justify-content: center; }
+  .wvol { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 9px;
+    font-family: "IBM Plex Mono", monospace; font-size: 9.5px; color: rgba(242,237,228,0.55); }
+</style>
+</head>
+<body>
+  <div class="orb"></div>
+
+  <div class="left">
+    <div class="brand">
+      <img src="../site/public/logo.png" alt="">
+      <span>Cue</span>
+    </div>
+    <h1>The remote your<br>Mac never had.</h1>
+    <p class="sub">Control everything playing on your Mac — from your iPhone or your wrist.</p>
+    <div class="chips">
+      <span class="chip"><span class="dot"></span>Local-only</span>
+      <span class="chip">No cloud, no account</span>
+      <span class="chip">Open source · MIT</span>
+    </div>
+  </div>
+
+  <div class="phone">
+    <div class="screen">
+      <div class="conn"><span class="dot"></span>MacBook Pro</div>
+      <div class="art"><div class="sheen"></div><div class="ring"></div><div class="hole"></div></div>
+      <div class="title">Midnight Reverie</div>
+      <div class="artist">The Sundowners · YouTube Music</div>
+      <div class="track"><div class="fill"></div></div>
+      <div class="times"><span>1:14</span><span>−2:22</span></div>
+      <div class="transport">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="#f2ede4" opacity="0.85"><path d="M6 6h2v12H6zM20 6v12L9.5 12z"/></svg>
+        <div class="play">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#16130f"><rect x="6" y="4" width="4.5" height="16" rx="1.5"/><rect x="13.5" y="4" width="4.5" height="16" rx="1.5"/></svg>
+        </div>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="#f2ede4" opacity="0.85"><path d="M6 6h2v12H6zM20 6v12L9.5 12z" transform="rotate(180 12 12)"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="watch">
+    <div class="crown"></div>
+    <div class="side"></div>
+    <div class="wscreen">
+      <div class="wrow">
+        <div class="wart"></div>
+        <div>
+          <div class="wtitle">Midnight Reverie</div>
+          <div class="wartist">The Sundowners</div>
+        </div>
+      </div>
+      <div class="wtrack"><div class="fill"></div></div>
+      <div class="wtransport">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(242,237,228,0.85)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5V2L7 6l5 4V7a6 6 0 1 1-6 6"/></svg>
+        <div class="wplay">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="#f6f2ea"><rect x="6" y="4" width="4.5" height="16" rx="1.5"/><rect x="13.5" y="4" width="4.5" height="16" rx="1.5"/></svg>
+        </div>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(242,237,228,0.85)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5V2l5 4-5 4V7a6 6 0 1 0 6 6"/></svg>
+      </div>
+      <div class="wvol"><svg width="10" height="10" viewBox="0 0 24 24" fill="rgba(242,237,228,0.55)"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>52%</div>
+    </div>
+  </div>
+</body>
+</html>
