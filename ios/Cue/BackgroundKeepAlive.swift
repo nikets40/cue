@@ -2,11 +2,21 @@ import AVFoundation
 import Foundation
 import UIKit
 
-/// Keeps the app running while backgrounded by looping a silent, mixable
-/// audio buffer (UIBackgroundModes: audio). This holds the WebSocket to Booth
-/// open, so track changes on the Mac update the Live Activity in real time —
-/// the free-account alternative to ActivityKit push updates. Runs only while
-/// connected; `mixWithOthers` keeps it inaudible and non-interrupting.
+/// Keeps the app running while backgrounded by looping a silent audio buffer
+/// (UIBackgroundModes: audio). This holds the WebSocket to Booth open, so track
+/// changes on the Mac reach the Live Activity — the free-account alternative to
+/// ActivityKit push updates. Runs only while connected.
+///
+/// The session is mixable in the foreground and exclusive in the background,
+/// which is not fussiness. A mixable session makes this a *secondary* audio
+/// app, and iOS does not hand background running time to secondary audio —
+/// otherwise any app could buy itself unlimited background execution with
+/// silent sound. Measured on a real device: with `mixWithOthers` the process
+/// survived backgrounding but was suspended, holding no socket at all.
+///
+/// The cost is that backgrounding Cue takes audio focus, interrupting anything
+/// playing on the phone itself. Staying mixable while in the foreground keeps
+/// that cost to the moments where it buys something.
 @MainActor
 final class BackgroundKeepAlive {
     static let shared = BackgroundKeepAlive()
@@ -40,18 +50,17 @@ final class BackgroundKeepAlive {
         player = nil
     }
 
+    /// Mixable while the app is on screen, exclusive once it isn't. See the
+    /// type comment for why the distinction decides whether this works at all.
+    private var mixable = true
+
     @discardableResult
     private func startPlayer() -> Bool {
         if player?.isPlaying == true { return true }
         player = nil
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(.playback, options: [.mixWithOthers])
-            try session.setActive(true)
-        } catch {
-            return false
-        }
+        guard configureSession() else { return false }
         guard let created = try? AVAudioPlayer(data: Self.makeSilentWav()) else { return false }
+        created.delegate = nil
         created.numberOfLoops = -1
         // Full volume on purpose. The buffer is silence, so this is inaudible
         // either way, and a zero-volume player is a weaker claim to be an app
@@ -117,18 +126,45 @@ final class BackgroundKeepAlive {
             }
         })
 
-        // The moment that decides whether the app keeps running. If the player
-        // isn't genuinely going by now, iOS suspends us and the socket to Booth
-        // dies with it — which is exactly when the Live Activity goes stale.
+        // The moment that decides whether the app keeps running. Claim the
+        // session exclusively here: a mixable one is treated as secondary
+        // audio and earns no background time.
         observers.append(centre.addObserver(
             forName: UIApplication.didEnterBackgroundNotification,
             object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.shouldRun else { return }
-                if !self.startPlayer() { self.restart() }
+                self.mixable = false
+                self.restart()
             }
         })
+
+        // Back on screen there's nothing to keep alive, so hand the session
+        // back and stop interrupting whatever else the phone was playing.
+        observers.append(centre.addObserver(
+            forName: UIApplication.willEnterForegroundNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.shouldRun else { return }
+                self.mixable = true
+                self.restart()
+            }
+        })
+    }
+
+    /// Returns false rather than throwing so callers can simply retry; the
+    /// watchdog does exactly that.
+    private func configureSession() -> Bool {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playback, options: mixable ? [.mixWithOthers] : [])
+            try session.setActive(true)
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Notifications can be missed — during suspension, or when an
