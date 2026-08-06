@@ -3,10 +3,10 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-// Renders the macOS master icon: the same C-Play mark on the Backdrop wash,
-// but inset in the rounded-square silhouette macOS icons use (unlike iOS,
-// macOS art is not full-bleed — the system draws no mask, so the shape and
-// its padding are part of the artwork).
+// Renders the macOS master icon: the refined C-Play mark (variant B) on the
+// site's sunset ramp, inset in the rounded-square silhouette macOS icons use
+// (unlike iOS, macOS art is not full-bleed — the system draws no mask, so the
+// shape and its padding are part of the artwork).
 //
 //   swift tools/make-macos-icon.swift <output.png>
 
@@ -38,7 +38,7 @@ let squircle = CGPath(roundedRect: body, cornerWidth: cornerRadius, cornerHeight
 ctx.saveGState()
 ctx.setShadow(offset: CGSize(width: 0, height: -12), blur: 34, color: color(0x000000, 0.32))
 ctx.addPath(squircle)
-ctx.setFillColor(color(0x241A4A))
+ctx.setFillColor(color(0x7C3AED))
 ctx.fillPath()
 ctx.restoreGState()
 
@@ -46,37 +46,39 @@ ctx.saveGState()
 ctx.addPath(squircle)
 ctx.clip()
 
-let gradient = CGGradient(
+// The site's 115° sunset ramp, upper-left to lower-right of the body.
+let ramp = CGGradient(
     colorsSpace: space,
-    colors: [color(0xFF9D6C), color(0xD4507A), color(0x5B2A86), color(0x241A4A)] as CFArray,
-    locations: [0, 0.34, 0.70, 1])!
-ctx.drawRadialGradient(
-    gradient,
-    startCenter: CGPoint(x: 210, y: 900), startRadius: 0,
-    endCenter: CGPoint(x: 210, y: 900), endRadius: 1180,
-    options: [.drawsAfterEndLocation])
+    colors: [color(0xF7941E), color(0xE0447C), color(0x7C3AED)] as CFArray,
+    locations: [0, 0.55, 1])!
+ctx.drawLinearGradient(
+    ramp,
+    start: CGPoint(x: 130, y: 890), end: CGPoint(x: 890, y: 130),
+    options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
 
-let glow = CGGradient(
+// Top-left bloom — the same light logic as the landing page's ambient orbs.
+let bloom = CGGradient(
     colorsSpace: space,
-    colors: [color(0xD4507A, 0.32), color(0xD4507A, 0)] as CFArray,
-    locations: [0, 1])!
+    colors: [color(0xFFE3B8, 0.45), color(0xFFD9C2, 0.12), color(0xFFFFFF, 0)] as CFArray,
+    locations: [0, 0.45, 1])!
 ctx.drawRadialGradient(
-    glow,
-    startCenter: CGPoint(x: 800, y: 220), startRadius: 0,
-    endCenter: CGPoint(x: 800, y: 220), endRadius: 540,
+    bloom,
+    startCenter: CGPoint(x: 347, y: 743), startRadius: 0,
+    endCenter: CGPoint(x: 347, y: 743), endRadius: 618,
     options: [])
 
-// Mark, scaled to the inset body and nudged right so the open C reads centered.
+// Mark (variant B, scaled to the 824 body): slimmer ring, flat terminals,
+// bigger triangle, nudged right so the open C reads centered.
 let center = CGPoint(x: 520, y: 512)
-let ringRadius: CGFloat = 186
-let stroke: CGFloat = 95
-let gapHalf: CGFloat = 38 * .pi / 180
+let ringRadius: CGFloat = 222
+let stroke: CGFloat = 111
+let gapHalf: CGFloat = 39 * .pi / 180
 
 let ring = CGMutablePath()
 ring.addArc(center: center, radius: ringRadius, startAngle: gapHalf, endAngle: -gapHalf, clockwise: false)
 ctx.setStrokeColor(color(0xFFFFFF))
 ctx.setLineWidth(stroke)
-ctx.setLineCap(.round)
+ctx.setLineCap(.butt)
 ctx.addPath(ring)
 ctx.strokePath()
 
@@ -93,11 +95,10 @@ func roundedTriangle(_ vertices: [CGPoint], radius: CGFloat) -> CGPath {
     return path
 }
 
-let shift: CGFloat = 14
 let triangle = [
-    CGPoint(x: center.x - 72 + shift, y: center.y + 100),
-    CGPoint(x: center.x - 72 + shift, y: center.y - 100),
-    CGPoint(x: center.x + 107 + shift, y: center.y),
+    CGPoint(x: center.x - 49, y: center.y + 95),
+    CGPoint(x: center.x - 49, y: center.y - 95),
+    CGPoint(x: center.x + 115, y: center.y),
 ]
 ctx.setFillColor(color(0xFFFFFF))
 ctx.addPath(roundedTriangle(triangle, radius: 21))
