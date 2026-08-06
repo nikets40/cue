@@ -87,6 +87,18 @@ The result: your phone shows the actual show poster while Netflix plays, the rea
 
 ### 1. Install Cue Booth (macOS)
 
+**Download it** — [latest release](https://github.com/nikets40/cue/releases/latest). Unzip, move **Cue Booth.app** to `/Applications`, then:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Cue Booth.app"
+open "/Applications/Cue Booth.app"
+```
+
+That command is not optional. The build is signed but **not notarised** — notarisation needs a paid Apple Developer account — so macOS reports that the developer cannot be verified until the download flag is cleared. Right-click → **Open** does the same thing through the UI.
+
+<details>
+<summary><strong>Or build it from source</strong></summary>
+
 ```bash
 git clone https://github.com/nikets40/cue.git
 cd cue
@@ -99,9 +111,14 @@ tools/make-app.sh --install
 open "/Applications/Cue Booth.app"
 ```
 
+Building locally signs with your own certificate, which avoids the quarantine step.
+</details>
+
 Cue Booth lives in the menu bar. Click its icon → **Open Dashboard** to see what it's tracking and to find your pairing code.
 
-> The adapter is copied *into* the app bundle, so once built, Booth no longer depends on Homebrew.
+> The adapter is copied *into* the app bundle, so Booth doesn't depend on Homebrew once installed. Downloads carry it already.
+
+> **Updating a downloaded build re-prompts for Accessibility.** Each release is ad-hoc signed, and macOS keys that permission to the signature, so it treats a new release as a different app. Building from source with a stable certificate avoids this.
 
 ### 2. Install the Chrome extension
 
@@ -224,7 +241,8 @@ A few things that turned out to be necessary rather than optional:
 | `CueKit/` | Wire protocol shared by both |
 | `chrome-extension/` | The Chrome extension |
 | `site/` | The landing page ([cue.vyncee.com](https://cue.vyncee.com), Next.js) |
-| `tools/` | Build, packaging and setup scripts |
+| `tools/` | Build, packaging, release and setup scripts |
+| `third_party/` | Licences for what's vendored into the app bundle |
 | `design/` | Design explorations |
 
 ## Troubleshooting
@@ -266,6 +284,10 @@ cd booth && swift run
 
 # Rebuild and reinstall the packaged app
 tools/make-app.sh --install
+
+# Package a release, then publish it to GitHub
+tools/make-release.sh 1.1.0
+tools/make-release.sh 1.1.0 --publish
 
 # Regenerate every icon — iOS variants, watch icon, and the site's logo tiles —
 # into one folder, then copy what changed into the asset catalogs and site/public

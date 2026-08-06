@@ -3,6 +3,9 @@ import { CueWatch } from "./watch";
 import { Reveal } from "./reveal";
 
 const GITHUB = "https://github.com/nikets40/cue";
+// Resolves to whatever the newest release holds, so long as the asset keeps
+// this name — see tools/make-release.sh.
+const DOWNLOAD = "https://github.com/nikets40/cue/releases/latest/download/CueBooth.zip";
 
 const brands = [
   ["netflix.svg", "Netflix"],
@@ -55,8 +58,14 @@ export function Hero() {
           </Reveal>
           <Reveal>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-              <a className="v3-btn v3-btn-primary" href={GITHUB} target="_blank" rel="noreferrer">
-                Get it on GitHub
+              <a className="v3-btn v3-btn-primary" href={DOWNLOAD}>
+                Download for macOS
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M12 4v12m0 0 4-4m-4 4-4-4M5 20h14" />
+                </svg>
+              </a>
+              <a className="v3-btn v3-btn-ghost" href={GITHUB} target="_blank" rel="noreferrer">
+                Source on GitHub
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M7 17 17 7M9 7h8v8" />
                 </svg>
@@ -79,6 +88,23 @@ export function Hero() {
                 </span>
               </a>
             </div>
+          </Reveal>
+          <Reveal>
+            {/* The download is the Mac half only. Saying so here costs a line
+                and saves someone downloading it expecting a phone app. */}
+            <p style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, maxWidth: "46ch" }}>
+              macOS 14+. Free and open source. The iPhone and Watch apps are
+              built and installed with Xcode —{" "}
+              <a
+                href={`${GITHUB}#3-build-and-install-the-iphone-app`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "var(--text-secondary)", textDecoration: "underline" }}
+              >
+                see the guide
+              </a>
+              .
+            </p>
           </Reveal>
           <Reveal>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

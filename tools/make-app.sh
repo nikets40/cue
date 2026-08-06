@@ -12,7 +12,8 @@ cd "$(dirname "$0")/.."
 
 APP="dist/Cue Booth.app"
 CONTENTS="$APP/Contents"
-VERSION="1.0.0"
+# Overridable so make-release.sh can stamp the tag it's publishing.
+VERSION="${CUE_VERSION:-1.0.0}"
 
 echo "==> Building release binary"
 (cd booth && swift build -c release)
@@ -69,6 +70,10 @@ mkdir -p "$CONTENTS/Resources/media-control"
 ditto "$BREW_PREFIX/bin" "$CONTENTS/Resources/media-control/bin"
 ditto "$BREW_PREFIX/lib" "$CONTENTS/Resources/media-control/lib"
 ditto "$BREW_PREFIX/Frameworks" "$CONTENTS/Resources/media-control/Frameworks"
+# BSD-3 requires the notice to travel with any redistributed binary, and the
+# release ships this bundle wholesale. Homebrew doesn't install a copy, so the
+# repo carries one — see third_party/README.md.
+cp third_party/media-control-LICENSE.txt "$CONTENTS/Resources/media-control/LICENSE.txt"
 
 echo "==> Signing"
 # Ad-hoc is enough for a locally built personal app; a real identity is used
