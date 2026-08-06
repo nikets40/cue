@@ -254,7 +254,16 @@
   /// button's state is the only reliable signal, while on YouTube the
   /// `selected` attribute marks exactly one.
   function queueRows() {
-    const musicRows = Array.from(document.querySelectorAll("ytmusic-player-queue-item"));
+    // YouTube Music renders each row twice when the track has a song/video
+    // counterpart: the real one under #primary-renderer, and the alternate
+    // under a hidden #counterpart-renderer. Both match the element selector,
+    // which is why the queue showed the same song twice with slightly
+    // different artwork, credits and running time. Measured on a live radio:
+    // 82 elements, 50 real. Filtering by the container rather than by
+    // visibility keeps this working when the queue panel is collapsed.
+    const musicRows = Array.from(
+      document.querySelectorAll("ytmusic-player-queue-item")
+    ).filter((item) => !item.closest("#counterpart-renderer"));
     if (musicRows.length) {
       return musicRows.map((item) => {
         const state = item.getAttribute("play-button-state");

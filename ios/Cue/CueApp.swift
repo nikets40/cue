@@ -37,6 +37,13 @@ struct CueApp: App {
                             boothName: boothName)
                     }
                     WatchRelay.shared.activate()
+                    // A repaired keep-alive means the app may have been
+                    // suspended, which drops the socket silently; without this
+                    // the Live Activity keeps showing the old track until the
+                    // app is opened by hand.
+                    BackgroundKeepAlive.shared.onRestart = { [weak client] in
+                        client?.reconnectIfNeeded()
+                    }
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { client.reconnectIfNeeded() }

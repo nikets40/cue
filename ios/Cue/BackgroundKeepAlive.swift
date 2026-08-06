@@ -11,8 +11,35 @@ final class BackgroundKeepAlive {
     static let shared = BackgroundKeepAlive()
 
     private var player: AVAudioPlayer?
+    private var observers: [NSObjectProtocol] = []
+    private var watchdog: Timer?
+    /// Whether the keep-alive is meant to be running, as distinct from whether
+    /// it currently is — the two diverge exactly when this class has to repair
+    /// itself.
+    private var shouldRun = false
+    /// Called after the keep-alive repairs itself. That moment is the best
+    /// signal available that the app may have been suspended, and therefore
+    /// that the socket to Booth needs checking.
+    var onRestart: (() -> Void)?
 
     func start() {
+        shouldRun = true
+        observeAudioSession()
+        startWatchdog()
+        startPlayer()
+    }
+
+    func stop() {
+        shouldRun = false
+        watchdog?.invalidate()
+        watchdog = nil
+        for observer in observers { NotificationCenter.default.removeObserver(observer) }
+        observers.removeAll()
+        player?.stop()
+        player = nil
+    }
+
+    private func startPlayer() {
         guard player == nil else { return }
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, options: [.mixWithOthers])
@@ -23,9 +50,82 @@ final class BackgroundKeepAlive {
         player?.play()
     }
 
-    func stop() {
+    /// Anything that stops the silent player also lets iOS suspend the app,
+    /// which kills the socket to Booth — and then the Live Activity sits on an
+    /// old track until the app is opened by hand. Interruptions are the common
+    /// cause: a call, Siri, or another app claiming audio.
+    private func observeAudioSession() {
+        guard observers.isEmpty else { return }
+        let centre = NotificationCenter.default
+
+        observers.append(centre.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(), queue: .main
+        ) { [weak self] note in
+            let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            guard let type = raw.flatMap(AVAudioSession.InterruptionType.init) else { return }
+            Task { @MainActor in
+                guard let self, self.shouldRun else { return }
+                switch type {
+                case .began:
+                    // The system has already paused us; drop the player so the
+                    // restart below builds a fresh one.
+                    self.player = nil
+                case .ended:
+                    self.restart()
+                @unknown default:
+                    self.restart()
+                }
+            }
+        })
+
+        // Losing a route (headphones unplugged, Bluetooth dropping) pauses
+        // playback under the same rules as a real audio app.
+        observers.append(centre.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: AVAudioSession.sharedInstance(), queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.shouldRun else { return }
+                if self.player?.isPlaying != true { self.restart() }
+            }
+        })
+
+        // Media services can be torn down wholesale; every AVAudioPlayer built
+        // before that point is dead and has to be recreated.
+        observers.append(centre.addObserver(
+            forName: AVAudioSession.mediaServicesWereResetNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.shouldRun else { return }
+                self.restart()
+            }
+        })
+    }
+
+    /// Notifications can be missed — during suspension, or when an
+    /// interruption ends without the resume hint — so the state is also
+    /// checked on a timer. This is the difference between recovering in
+    /// seconds and staying dead until the user opens the app.
+    private func startWatchdog() {
+        watchdog?.invalidate()
+        let timer = Timer(timeInterval: 15, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.shouldRun else { return }
+                if self.player?.isPlaying != true { self.restart() }
+            }
+        }
+        // Common mode so it keeps firing while the UI is being scrolled.
+        RunLoop.main.add(timer, forMode: .common)
+        watchdog = timer
+    }
+
+    private func restart() {
         player?.stop()
         player = nil
+        startPlayer()
+        onRestart?()
     }
 
     /// One second of 8 kHz mono 16-bit PCM silence.
