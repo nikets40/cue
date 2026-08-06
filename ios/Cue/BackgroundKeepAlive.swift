@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import UIKit
 
 /// Keeps the app running while backgrounded by looping a silent, mixable
 /// audio buffer (UIBackgroundModes: audio). This holds the WebSocket to Booth
@@ -39,15 +40,28 @@ final class BackgroundKeepAlive {
         player = nil
     }
 
-    private func startPlayer() {
-        guard player == nil else { return }
+    @discardableResult
+    private func startPlayer() -> Bool {
+        if player?.isPlaying == true { return true }
+        player = nil
         let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, options: [.mixWithOthers])
-        try? session.setActive(true)
-        player = try? AVAudioPlayer(data: Self.makeSilentWav())
-        player?.numberOfLoops = -1
-        player?.volume = 0
-        player?.play()
+        do {
+            try session.setCategory(.playback, options: [.mixWithOthers])
+            try session.setActive(true)
+        } catch {
+            return false
+        }
+        guard let created = try? AVAudioPlayer(data: Self.makeSilentWav()) else { return false }
+        created.numberOfLoops = -1
+        // Full volume on purpose. The buffer is silence, so this is inaudible
+        // either way, and a zero-volume player is a weaker claim to be an app
+        // that is actually playing audio — which is the whole basis for being
+        // allowed to keep running.
+        created.volume = 1
+        created.prepareToPlay()
+        guard created.play() else { return false }
+        player = created
+        return true
     }
 
     /// Anything that stops the silent player also lets iOS suspend the app,
@@ -100,6 +114,19 @@ final class BackgroundKeepAlive {
             Task { @MainActor in
                 guard let self, self.shouldRun else { return }
                 self.restart()
+            }
+        })
+
+        // The moment that decides whether the app keeps running. If the player
+        // isn't genuinely going by now, iOS suspends us and the socket to Booth
+        // dies with it — which is exactly when the Live Activity goes stale.
+        observers.append(centre.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.shouldRun else { return }
+                if !self.startPlayer() { self.restart() }
             }
         })
     }
