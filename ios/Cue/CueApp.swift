@@ -46,12 +46,19 @@ struct CueApp: App {
                     }
                 }
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .active { client.reconnectIfNeeded() }
+                    if phase == .active {
+                        client.reconnectIfNeeded()
+                        // The card may have missed updates while away, so let
+                        // the next sync through even if it looks unchanged.
+                        LiveActivityManager.shared.invalidateCache()
+                    }
                 }
                 .onChange(of: client.phase) { _, phase in
                     switch phase {
                     case .connected:
                         BackgroundKeepAlive.shared.start()
+                        // Anything missed while disconnected has to be resent.
+                        LiveActivityManager.shared.invalidateCache()
                     case .connecting:
                         break
                     default:
