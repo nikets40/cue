@@ -5,18 +5,19 @@
 <h1 align="center">Cue</h1>
 
 <p align="center">
-  <strong>Control everything playing on your Mac from your iPhone.</strong><br>
+  <strong>Control everything playing on your Mac from your iPhone — or your wrist.</strong><br>
   Netflix, YouTube Music, Prime, Hotstar, VLC, QuickTime — one remote.
 </p>
 
 <p align="center">
+  <a href="https://cue.vyncee.com"><img src="https://img.shields.io/badge/website-cue.vyncee.com-7c3aed" alt="cue.vyncee.com"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-1d1d1f" alt="macOS 14+">
   <img src="https://img.shields.io/badge/iOS-17%2B-1d1d1f" alt="iOS 17+">
   <img src="https://img.shields.io/badge/Swift-6.0-f05138" alt="Swift 6">
   <img src="https://img.shields.io/badge/local--only-no%20cloud-3fa46a" alt="Local only">
 </p>
 
-Cue is a pair of apps: **Cue Booth**, a macOS menu bar app that watches and drives whatever is playing, and **Cue**, an iPhone app that talks to it over your local network. No cloud, no account, no data leaves your machine.
+Cue is a pair of apps: **Cue Booth**, a macOS menu bar app that watches and drives whatever is playing, and **Cue**, an iPhone app — with an Apple Watch companion — that talks to it over your local network. No cloud, no account, no data leaves your machine. Full tour at [cue.vyncee.com](https://cue.vyncee.com).
 
 <p align="center">
   <img src="docs/screenshots/discovery.png" width="240" alt="Discovery screen finding the Mac on the local network">
@@ -48,6 +49,7 @@ The result: your phone shows the actual show poster while Netflix plays, the rea
 - **Like / dislike** on YouTube Music
 - **Lock Screen & Dynamic Island** — a Live Activity with working controls and a progress bar that keeps ticking
 - **Hardware volume buttons** control the Mac while the app is open
+- **Apple Watch companion** — what's playing, play/pause and ±15s on your wrist, with the Digital Crown turning the Mac's volume; it relays through the iPhone, so there's nothing extra to pair
 - **Landscape layout** for the player
 
 <p align="center">
@@ -192,8 +194,8 @@ Nothing to configure — but the first time Cue Booth talks to QuickTime, macOS 
 │  SwiftUI                 │  LAN    │  WebSocket server + Bonjour          │
 │  Bonjour discovery       │◄───────►│                                      │
 │  Live Activity           │   ws    │   ├─ MediaRemote adapter (now playing)│
-└──────────────────────────┘         │   ├─ CoreAudio (system volume)       │
-                                     │   ├─ AppleScript → QuickTime         │
+│  Apple Watch relay       │         │   ├─ CoreAudio (system volume)       │
+└──────────────────────────┘         │   ├─ AppleScript → QuickTime         │
 ┌─ Chrome: Cue Bridge ─────┐  ws     │   ├─ HTTP → VLC                      │
 │  Reads Media Session     │────────►│   ├─ CGEvent keystroke (fullscreen)  │
 │  Drives page controls    │         │   └─ TMDB (posters)                  │
@@ -215,9 +217,10 @@ A few things that turned out to be necessary rather than optional:
 | Path | What it is |
 |---|---|
 | `booth/` | Cue Booth, the macOS app (Swift Package) |
-| `ios/` | The iPhone app (XcodeGen project) |
+| `ios/` | The iPhone app and its Apple Watch companion (XcodeGen project) |
 | `CueKit/` | Wire protocol shared by both |
 | `chrome-extension/` | The Chrome extension |
+| `site/` | The landing page ([cue.vyncee.com](https://cue.vyncee.com), Next.js) |
 | `tools/` | Build, packaging and setup scripts |
 | `design/` | Design explorations |
 
@@ -260,8 +263,9 @@ cd booth && swift run
 # Rebuild and reinstall the packaged app
 tools/make-app.sh --install
 
-# Regenerate the app icon
-swift tools/make-icon.swift ios/Cue/Assets.xcassets/AppIcon.appiconset
+# Regenerate every icon — iOS variants, watch icon, and the site's logo tiles —
+# into one folder, then copy what changed into the asset catalogs and site/public
+swift tools/make-icon.swift dist/icons
 
 # Poke the protocol by hand
 swift tools/wstest.swift ws://127.0.0.1:41952 <pairing-code> '{"action":"togglePlayPause"}'

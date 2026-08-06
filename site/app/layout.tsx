@@ -20,6 +20,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://cue.vyncee.com"),
   title: "Cue — the remote your Mac never had",
   description:
     "Cue turns your iPhone and Apple Watch into a real remote for everything playing on your Mac — Netflix, YouTube Music, Prime, Hotstar, VLC, QuickTime, any tab. Real posters, real titles, over your own Wi-Fi. No cloud, no account. Open source, MIT.",
