@@ -48,7 +48,7 @@ The result: your phone shows the actual show poster while Netflix plays, the rea
 - **Fullscreen from the couch** — one tap brings the player forward and puts the video into real fullscreen, in the browser as well as QuickTime and VLC
 - **Queue browsing** — YouTube Music and YouTube playlists with artwork, plus VLC's playlist
 - **Like / dislike** on YouTube Music
-- **Lock Screen & Dynamic Island** — a Live Activity with working controls and a progress bar that keeps ticking
+- **Lock Screen & Dynamic Island** — a Live Activity with working controls and a progress bar that keeps ticking, following the Mac even while the phone is locked
 - **Hardware volume buttons** control the Mac while the app is open
 - **Apple Watch companion** — what's playing, play/pause and ±15s on your wrist, with the Digital Crown turning the Mac's volume; it relays through the iPhone, so there's nothing extra to pair
 - **Landscape layout** for the player
@@ -209,8 +209,10 @@ A few things that turned out to be necessary rather than optional:
 
 - **Netflix publishes no Media Session data at all**, and its document title is just "Netflix" — the show name has to be read from the player UI, and remembered, because the title overlay unmounts when the controls fade.
 - **Queue rows carry their data in a JS property**, not the DOM: the rendered `<img>` is a lazy-loading placeholder for every off-screen row. That property is invisible to an isolated content script, which is why queue reading runs in the page's own world.
+- **YouTube Music renders every queue row twice** when a track has a song/video counterpart — the real one under `#primary-renderer`, the alternate under a hidden `#counterpart-renderer`. Both match the row selector, so the queue listed each song twice with subtly different artwork, credits and running time. Filtering by container rather than by visibility keeps it right when the panel is collapsed.
 - **QuickTime never registers with Now Playing**, so it's driven entirely through AppleScript and only stands in when nothing else claims playback.
-- **Relative seeking drifts badly on streaming players** (a measured +15s once moved playback 84 seconds), so ±15 clicks the player's own jump buttons where they exist.
+- **±15s is an absolute seek, computed from the page's own clock.** MediaRemote only refreshes position on change, and on Netflix it was measured running about fifteen seconds out in either direction — enough for a jump to land back where it started. Clicking the player's own skip buttons was tried first and abandoned: Netflix unmounts those controls whenever the UI fades, so it worked only during the seconds the bar happened to be on screen. Setting `currentTime` directly is worse still — it tears down the MSE pipeline and kills playback.
+- **The phone has to claim the audio session to stay alive.** The Live Activity can only follow the Mac while the app is running, and the app only keeps running because of a looping silent buffer (`UIBackgroundModes: audio`). That buffer has to be *exclusive*: a mixable session counts as secondary audio, and iOS grants it no background time — measured on a device, the process survived backgrounding but was suspended, holding no socket at all. The session is therefore mixable on screen and exclusive off it.
 - **No extension can fullscreen a video.** Chrome requires trusted input, which rules out both `requestFullscreen()` and clicking the site's own button from a script. Booth posts a real `CGEvent` keystroke instead — indistinguishable from your keyboard, because it enters through the OS input stack rather than the page. The extension's job is only to put the right tab in front with focus on its player.
 
 ## Repository layout
@@ -252,7 +254,8 @@ The free-account signature expired (7 days). Re-run the install command in step 
 - **Fullscreen in VLC needs a video.** On an audio-only track there's no video output, so the command is skipped deliberately rather than silently flipping VLC's internal flag and surprising the next video you open.
 - The list of sources covers Chrome, QuickTime and VLC. macOS exposes no way to enumerate every app with paused media, so anything else is invisible unless integrated individually.
 - Quick Look previews (space-to-preview in Finder) can't be controlled: they never register with Now Playing and expose no scripting interface.
-- Live Activity content updates while the phone is locked depend on the app staying alive; buttons always work.
+- **Backgrounding Cue interrupts audio playing on the phone itself** — a podcast, or music playing on the phone rather than the Mac. That's the price of the exclusive audio session that keeps the Live Activity updating while locked (see *How it works*); your Mac's playback is unaffected. Bring Cue back on screen and the session goes mixable again.
+- Live Activity updates stop if iOS suspends the app anyway. The card then shows as stale rather than presenting a finished track as current. The real fix is ActivityKit push updates, which need a paid account for the push entitlement.
 - The MediaRemote adapter relies on a community workaround for an API Apple restricted in macOS 15.4. It's the most likely thing to break on a future macOS release.
 
 ## Development
